@@ -216,24 +216,9 @@
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const aspectRatio = img.height / img.width;
-          
-          if (aspectRatio > 1.2) {
-            const cropW = Math.round(img.width * 0.70);
-            const cropH = Math.round(img.height * 0.22);
-            const cropX = Math.round((img.width - cropW) / 2);
-            const cropY = img.height - cropH;
-            canvas.width = cropW;
-            canvas.height = cropH;
-            ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-            statusEl.textContent = "Portrait detected: Cropping bottom-middle...";
-          } else {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-            statusEl.textContent = "Full-page scan initiated...";
-          }
-
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
           if (scanMode === 'handwriting') scanWithClaude(); else runTesseract();
         };
         img.src = e.target.result;
