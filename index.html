@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cambridge Paper Scanner</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      gap: 12px;
+    }
+    h1 { font-size: 1.3rem; color: #60a5fa; }
+    p.subtitle { font-size: 0.8rem; color: #64748b; text-align: center; line-height: 1.6; }
+    #mode-row { display: flex; gap: 8px; background: #1e293b; border-radius: 50px; padding: 4px; border: 1px solid #334155; }
+    .mode-btn { padding: 7px 18px; border: none; border-radius: 50px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s; background: transparent; color: #64748b; }
+    .mode-btn.active { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
+    #api-panel { display: none; width: 100%; max-width: 420px; background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px 16px; gap: 8px; flex-direction: column; }
+    #api-panel.visible { display: flex; }
+    #api-key-input { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; padding: 8px; font-family: monospace; }
+    #video-container { position: relative; width: 100%; max-width: 420px; border-radius: 16px; overflow: hidden; border: 2px solid #1e40af; display: none; }
+    video { width: 100%; display: block; }
+    #aim-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 65px; border: 2px solid #60a5fa; border-radius: 6px; pointer-events: none; }
+    canvas { display: none; }
+    #status { font-size: 0.85rem; text-align: center; min-height: 20px; color: #64748b; }
+    #result-box { width: 100%; max-width: 420px; background: #1e293b; border-radius: 14px; padding: 18px; border: 1px solid #334155; }
+    #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; }
+    .btn-primary, .btn-secondary, .btn-scan { padding: 14px 32px; border: none; border-radius: 50px; font-weight: 600; cursor: pointer; color: white; }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+    .btn-secondary { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+    #bottom-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  </style>
+</head>
+<body>
+
+  <h1>📄 Cambridge Paper Scanner</h1>
+  <p class="subtitle">Printed or handwritten — align the code in the box</p>
+
+  <div id="mode-row">
+    <button class="mode-btn active" id="mode-print-btn" onclick="setMode('print')">🖨 Printed Text</button>
+    <button class="mode-btn" id="mode-hw-btn" onclick="setMode('handwriting')">✍️ Handwriting / AI</button>
+  </div>
+
+  <div id="api-panel">
+    <input id="api-key-input" type="password" placeholder="sk-ant-api03-...">
+  </div>
+
+  <div id="video-container">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="aim-box"></div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div id="status">Press Start Camera or Upload Image</div>
+
+  <div id="camera-actions" style="display:none; gap:10px; margin-top:10px;">
+    <button class="btn-scan" id="capture-btn" onclick="captureAndScan()">⚡ Capture & Scan</button>
+    <button onclick="stopCamera()" style="background:none; border:1px solid red; color:red; border-radius:20px; padding:5px 15px; cursor:pointer;">Stop</button>
+  </div>
+
+  <div id="result-box">
+    <div id="result-text">—</div>
+    <div id="raw-text" style="font-size: 0.8rem; color: #94a3b8; margin-top:10px;">—</div>
+  </div>
+
+  <div id="bottom-actions">
+    <button class="btn-primary" id="start-btn" onclick="startCamera()">📷 Start Camera</button>
+    <button class="btn-secondary" onclick="document.getElementById('upload-input').click()">🖼 Upload Image</button>
+  </div>
+
+  <input type="file" id="upload-input" style="display:none" accept="image/*" onchange="handleUpload(event)">
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const resultEl = document.getElementById('result-text');
+    const rawEl = document.getElementById('raw-text');
+    const statusEl = document.getElementById('status');
+    const vcEl = document.getElementById('video-container');
+    const apiKeyInput = document.getElementById('api-key-input');
+    
+    let stream = null;
+    let scanMode = 'print';
+
+    function setMode(m) {
+      scanMode = m;
+      document.getElementById('mode-print-btn').classList.toggle('active', m === 'print');
+      document.getElementById('mode-hw-btn').classList.toggle('active', m === 'handwriting');
+      document.getElementById('api-panel').classList.toggle('visible', m === 'handwriting');
+    }
+
+    function applySharpen(imageData) {
+      const { data, width, height } = imageData;
+      const output = new Uint8ClampedArray(data.length);
+      const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          for (let c = 0; c < 3; c++) {
+            let sum = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+              for (let kx = -1; kx <= 1; kx++) {
+                const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+                sum += data[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+              }
+            }
+            output[(y * width + x) * 4 + c] = sum;
+          }
+          output[(y * width + x) * 4 + 3] = 255;
+        }
+      }
+      return new ImageData(output, width, height);
+    }
+
+    function preprocessImage(sourceCanvas) {
+      const w = sourceCanvas.width;
+      const h = sourceCanvas.height;
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = w;
+      tempCanvas.height = h;
+      tempCtx.filter = 'grayscale(1) contrast(1.6) brightness(1.1)';
+      tempCtx.drawImage(sourceCanvas, 0, 0);
+      const imageData = tempCtx.
