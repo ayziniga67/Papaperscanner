@@ -3,67 +3,165 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cambridge Paper Scanner</title>
+  <title>Cambridge Scanner Pro</title>
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-color: #31273d;
+      --card-bg: #2b2b2b;
+      --accent: #7b6f86;
+      --text-main: #ffffff;
+      --text-dim: #b3b3b3;
+      --success: #34d399;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f172a; color: white; min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center; padding: 20px 16px; gap: 12px;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
     }
-    h1 { font-size: 1.3rem; color: #60a5fa; }
-    #video-container {
-      position: relative; width: 100%; max-width: 420px; border-radius: 16px;
-      overflow: hidden; border: 2px solid #1e40af; display: none;
-      box-shadow: 0 0 30px rgba(59,130,246,0.3);
+
+    /* Header Section */
+    .header h1 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 3.5rem;
+      text-transform: uppercase;
+      line-height: 1;
+      text-align: center;
+      letter-spacing: -1px;
     }
-    video { width: 100%; display: block; }
+
+    .header p {
+      font-size: 1.2rem;
+      color: var(--text-main);
+      text-align: center;
+      margin-top: 10px;
+      margin-bottom: 40px;
+    }
+
+    /* Camera Container */
+    #video-wrap {
+      width: 100%;
+      max-width: 350px;
+      height: 220px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 25px;
+    }
+
+    video { width: 100%; height: 100%; object-fit: cover; }
+
     #aim-box {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 85%; height: 70px; border: 3px solid #34d399; border-radius: 8px; pointer-events: none;
+      position: absolute;
+      width: 85%;
+      height: 60px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      pointer-events: none;
     }
-    .camera-controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
-    #progress-bar-wrap { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; display: none; overflow: hidden; }
-    #progress-bar { height: 100%; width: 0%; background: #34d399; transition: width 0.1s; }
-    .action-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
-    #result-box { width: 100%; max-width: 420px; background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
-    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .rlabel { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-    #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; }
-    .btn { padding: 12px 24px; border-radius: 50px; font-weight: 700; cursor: pointer; border: none; font-size: 0.95rem; transition: 0.2s; }
-    .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; width: 100%; }
-    .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; width: 60px; }
-    #status { font-size: 0.85rem; color: #94a3b8; text-align: center; }
+
+    /* Scan Button */
+    .btn-scan {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 45px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 30px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-scan:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Output Section */
+    .output-card {
+      width: 100%;
+      max-width: 350px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      min-height: 180px;
+    }
+
+    .output-card h2 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 2.2rem;
+      margin-bottom: 15px;
+    }
+
+    .auto-copy-tag {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--accent);
+      font-size: 0.65rem;
+      padding: 4px 10px;
+      border-radius: 50px;
+      color: white;
+    }
+
+    #result-text {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-main);
+      margin-top: 10px;
+    }
+
+    #status {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 8px;
+    }
+
+    #progress-bar {
+      height: 4px;
+      background: var(--success);
+      width: 0%;
+      margin-top: 10px;
+      transition: width 0.1s;
+    }
+
     canvas { display: none; }
-    .divider { border: none; border-top: 1px solid #334155; margin: 10px 0; }
   </style>
 </head>
 <body>
 
-  <h1>📄 Cambridge Paper Scanner</h1>
+  <div class="header">
+    <h1>CAMBRIGE IS GAY</h1>
+    <p>code ---> simple words</p>
+  </div>
 
-  <div id="video-container">
+  <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
     <div id="aim-box"></div>
+    <div id="init-overlay" style="position:absolute; background: var(--card-bg); padding: 10px; cursor: pointer;" onclick="startCamera()">Tap to Start Camera</div>
   </div>
 
-  <div class="camera-controls">
-    <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
-    <div class="action-row">
-      <button class="btn btn-primary" id="start-btn" onclick="startCamera()">📷 Open Camera</button>
-      <button class="btn btn-primary" id="capture-btn" onclick="captureAndScan()" style="display:none" disabled>⚡ Capture & Scan</button>
-      <button class="btn btn-stop" id="stop-btn" onclick="stopCamera()" style="display:none">✕</button>
-    </div>
+  <button class="btn-scan" id="capture-btn" onclick="captureAndScan()">scan</button>
+
+  <div class="output-card">
+    <div class="auto-copy-tag" id="copy-tag">auto copy on</div>
+    <h2>Output</h2>
+    <div id="result-text">xyz</div>
     <div id="status">Engine ready</div>
-  </div>
-
-  <div id="result-box">
-    <div class="result-header"><span class="rlabel">Output (Auto-Copied)</span></div>
-    <div id="result-text">—</div>
-    <hr class="divider">
-    <div class="rlabel">Detected Code</div>
-    <div id="raw-text" style="font-size: 0.85rem; color: #94a3b8; font-family: monospace;">—</div>
+    <div id="progress-bar"></div>
   </div>
 
   <canvas id="canvas"></canvas>
@@ -73,12 +171,10 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const resultEl = document.getElementById('result-text');
-    const rawEl = document.getElementById('raw-text');
     const statusEl = document.getElementById('status');
-    const progressWrap = document.getElementById('progress-bar-wrap');
-    const progressBar = document.getElementById('progress-bar');
     const captureBtn = document.getElementById('capture-btn');
-    const startBtn = document.getElementById('start-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const copyTag = document.getElementById('copy-tag');
     
     let stream = null;
     let worker = null;
@@ -95,102 +191,70 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-      // Expanding whitelist to allow Tesseract to clearly see weird separators 
-      // without mistaking them for letters/numbers.
       await worker.setParameters({
         tessedit_char_whitelist: '0123456789MFJONmfjon/\\-.,;:_[]{}\| ',
       });
     }
 
-    function formatFinal(match) {
-      const pNum = match[2];
-      const vNum = match[3];
-      const sess = match[4].toUpperCase();
-      const year = match[5];
-
-      let sName = sess;
-      if (/[FM]/.test(sess)) sName = 'March';
-      else if (/[MJ]/.test(sess)) sName = 'Summer';
-      else if (/[ON]/.test(sess)) sName = 'Winter';
-
-      return `Paper ${pNum} Variant ${vNum} ${sName} 20${year}`;
-    }
-
     function extractCode(raw) {
-      // The ultimate cleaner: 
-      // This deletes absolutely every character that is NOT a number (0-9) or a letter (A-Z/a-z).
-      // So regardless of whether it's 9709/52/F/M/20 or 9709.52_f-m|20, it instantly becomes 970952FM20.
       const clean = raw.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
-      
-      // LOGIC: (Subject:4 digits) (Paper:1-8) (Variant:1-6) (Session:MFJON) (Year:20-26)
       const regex = /(\d{4})([1-8])([1-6])([MFJON]{1,4})(2[0-6])/;
       const m = clean.match(regex);
-      return m;
+      if (m) {
+        const sess = m[4];
+        let sName = sess;
+        if (/[FM]/.test(sess)) sName = 'March';
+        else if (/[MJ]/.test(sess)) sName = 'Summer';
+        else if (/[ON]/.test(sess)) sName = 'Winter';
+        return `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
+      }
+      return null;
     }
 
     async function startCamera() {
       try {
-        statusEl.textContent = 'Loading...';
+        document.getElementById('init-overlay').style.display = 'none';
         await initWorker();
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 } }
         });
         video.srcObject = stream;
-        document.getElementById('video-container').style.display = 'block';
-        startBtn.style.display = 'none';
-        captureBtn.style.display = 'inline-block';
-        document.getElementById('stop-btn').style.display = 'inline-block';
-        captureBtn.disabled = false;
-        statusEl.textContent = 'Align and tap Capture';
+        statusEl.textContent = 'Camera ready';
       } catch (err) {
         statusEl.textContent = 'Error: ' + err.message;
       }
     }
 
     async function captureAndScan() {
+      if (!stream) return;
       captureBtn.disabled = true;
-      progressWrap.style.display = 'block';
-      statusEl.textContent = 'Analyzing...';
+      statusEl.textContent = 'Scanning...';
 
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-
-      // Contrast boost to make standard text super clear to the OCR
-      ctx.filter = 'grayscale(100%) contrast(250%) brightness(120%)';
+      ctx.filter = 'grayscale(100%) contrast(250%)';
       ctx.drawImage(video, 0, 0);
-      ctx.filter = 'none';
       
       try {
         const { data: { text } } = await worker.recognize(canvas);
-        const match = extractCode(text);
+        const final = extractCode(text);
         
-        if (match) {
-          const finalStr = formatFinal(match);
-          resultEl.textContent = finalStr;
-          // Format it beautifully with standardized slashes for the "Detected Code" box
-          rawEl.textContent = `${match[1]}/${match[2]}${match[3]}/${match[4]}/${match[5]}`;
-          statusEl.textContent = '✅ Copied to clipboard!';
-          navigator.clipboard.writeText(finalStr);
+        if (final) {
+          resultEl.textContent = final;
+          statusEl.textContent = '✅ Success';
+          navigator.clipboard.writeText(final);
+          copyTag.textContent = 'copied!';
+          setTimeout(() => { copyTag.textContent = 'auto copy on'; }, 2000);
         } else {
-          statusEl.textContent = '❌ No code found. Move closer.';
-          // Show what it ACTUALLY saw so you can debug if you hold it too far
-          rawEl.textContent = "Scanner saw: " + text.replace(/\s/g, '').substring(0, 20);
+          resultEl.textContent = 'xyz';
+          statusEl.textContent = '❌ Try moving closer';
         }
       } catch (err) {
-        statusEl.textContent = 'Scanner error. Try again.';
+        statusEl.textContent = 'Scanner error';
       }
       
-      progressWrap.style.display = 'none';
       captureBtn.disabled = false;
-    }
-
-    function stopCamera() {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      document.getElementById('video-container').style.display = 'none';
-      startBtn.style.display = 'inline-block';
-      captureBtn.style.display = 'none';
-      document.getElementById('stop-btn').style.display = 'none';
-      statusEl.textContent = 'Camera stopped';
+      progressBar.style.width = '0%';
     }
   </script>
 </body>
