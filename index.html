@@ -16,20 +16,14 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 24px 16px;
+      padding: 20px 16px;
       gap: 12px;
     }
 
     h1 { font-size: 1.3rem; color: #60a5fa; }
+    p.subtitle { font-size: 0.8rem; color: #64748b; text-align: center; }
 
-    p.subtitle {
-      font-size: 0.8rem;
-      color: #64748b;
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    /* ── Camera ── */
+    /* Camera Area */
     #video-container {
       position: relative;
       width: 100%;
@@ -50,45 +44,21 @@
       border-radius: 6px;
       pointer-events: none;
     }
-    #aim-label {
-      position: absolute;
-      bottom: 10px; left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.7rem;
-      color: #93c5fd;
-      background: rgba(0,0,0,0.55);
-      padding: 3px 10px;
-      border-radius: 20px;
-      white-space: nowrap;
-    }
-    canvas { display: none; }
 
-    /* ── Upload preview ── */
-    #upload-preview-wrap { width: 100%; max-width: 420px; display: none; }
-    #upload-preview { width: 100%; border-radius: 12px; border: 2px solid #1e40af; display: block; }
-    #upload-hint { font-size: 0.72rem; color: #64748b; text-align: center; margin-top: 6px; }
-
-    /* ── Status ── */
-    #status {
-      font-size: 0.85rem;
-      text-align: center;
-      min-height: 20px;
-      color: #64748b;
+    /* Controls immediately under camera */
+    .camera-controls {
       width: 100%;
       max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    #status.active  { color: #60a5fa; }
-    #status.success { color: #34d399; }
-    #status.error   { color: #f87171; }
-    #status.loading { color: #facc15; }
 
-    /* ── Progress ── */
     #progress-bar-wrap {
       width: 100%;
-      max-width: 420px;
-      height: 4px;
+      height: 6px;
       background: #1e293b;
-      border-radius: 4px;
+      border-radius: 10px;
       display: none;
       overflow: hidden;
     }
@@ -96,381 +66,218 @@
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #3b82f6, #34d399);
-      transition: width 0.3s;
-      border-radius: 4px;
+      transition: width 0.2s;
     }
 
-    /* ── Camera actions ── */
-    #camera-actions {
-      display: none;
-      gap: 10px;
-      width: 100%;
-      max-width: 420px;
-      justify-content: center;
-    }
+    .action-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
 
-    /* ── Result box ── */
+    /* Results Area */
     #result-box {
       width: 100%;
       max-width: 420px;
       background: #1e293b;
       border-radius: 14px;
-      padding: 18px;
+      padding: 16px;
       border: 1px solid #334155;
     }
+
     .result-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 5px;
+      align-items: center;
+      margin-bottom: 8px;
     }
+
     .rlabel {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
-    .copy-btn {
-      background: transparent;
-      border: 1px solid #334155;
-      color: #64748b;
-      border-radius: 8px;
-      padding: 3px 10px;
-      font-size: 0.72rem;
+
+    #result-text {
+      font-size: 1.2rem;
+      color: #34d399;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-weight: 600;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      transition: border-color 0.2s, color 0.2s;
+      border: none;
+      transition: all 0.2s;
+      font-size: 0.9rem;
     }
-    .copy-btn:hover  { border-color: #60a5fa; color: #60a5fa; }
-    .copy-btn.copied { border-color: #34d399; color: #34d399; }
-    #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; min-height: 28px; }
-    #raw-text    { font-size: 0.85rem; color: #94a3b8; font-family: monospace; min-height: 18px; }
-    #ocr-raw     { font-size: 0.75rem; color: #475569; font-family: monospace; word-break: break-all; line-height: 1.5; white-space: pre-wrap; }
-    .divider     { border: none; border-top: 1px solid #334155; margin: 12px 0; }
-
-    /* ── Buttons ── */
-    #bottom-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 420px; }
-
     .btn-primary {
-      padding: 14px 32px;
       background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: white; border: none; border-radius: 50px; font-size: 1rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(99,102,241,0.35); transition: transform 0.1s, opacity 0.2s;
+      color: white;
+      box-shadow: 0 4px 15px rgba(99,102,241,0.3);
     }
-    .btn-primary:active   { transform: scale(0.97); }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-    .btn-secondary {
-      padding: 14px 32px;
-      background: linear-gradient(135deg, #0ea5e9, #6366f1);
-      color: white; border: none; border-radius: 50px; font-size: 1rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(14,165,233,0.25); transition: transform 0.1s, opacity 0.2s;
+    .btn-primary:active { transform: scale(0.96); }
+    .btn-copy {
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      background: #334155;
+      color: #e2e8f0;
+      border-radius: 6px;
     }
-    .btn-secondary:active   { transform: scale(0.97); }
-    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-copy.success { background: #059669; color: white; }
+    .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; }
 
-    .btn-scan {
-      padding: 12px 28px;
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: white; border: none; border-radius: 50px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(99,102,241,0.35); transition: transform 0.1s, opacity 0.2s; display: none;
-    }
-    .btn-scan:active   { transform: scale(0.97); }
-    .btn-scan:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    #status { font-size: 0.8rem; color: #94a3b8; text-align: center; }
+    #status.loading { color: #facc15; }
+    #status.success { color: #34d399; }
 
-    .btn-stop {
-      padding: 12px 24px; background: transparent; color: #f87171; border: 1px solid #f87171;
-      border-radius: 50px; font-size: 0.9rem; cursor: pointer; display: none; transition: background 0.2s;
-    }
-    .btn-stop:hover { background: rgba(248,113,113,0.1); }
-
-    #upload-input { display: none; }
+    canvas { display: none; }
+    .divider { border: none; border-top: 1px solid #334155; margin: 10px 0; }
   </style>
 </head>
 <body>
 
   <h1>📄 Cambridge Paper Scanner</h1>
-  <p class="subtitle">
-    Align the code in the box<br>
-    (e.g. <code style="color:#93c5fd">9709/12/MJ/23</code>)<br>
-    Slashes written as lines or dashes are handled automatically.
-  </p>
+  <p class="subtitle">Align code in box then Capture</p>
 
   <div id="video-container">
     <video id="video" autoplay playsinline muted></video>
     <div id="aim-box"></div>
-    <div id="aim-label">Align code within box</div>
   </div>
 
-  <div id="upload-preview-wrap">
-    <img id="upload-preview" alt="Uploaded paper">
-    <div id="upload-hint"></div>
-  </div>
-
-  <canvas id="canvas"></canvas>
-
-  <div id="status">Press Start Camera or Upload Image</div>
-  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
-
-  <div id="camera-actions">
-    <button class="btn-scan" id="capture-btn" onclick="captureAndScan()" disabled>⚡ Capture &amp; Scan</button>
-    <button class="btn-stop" id="stop-btn"    onclick="stopCamera()">✕ Stop</button>
+  <div class="camera-controls">
+    <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+    <div class="action-row">
+      <button class="btn btn-primary" id="start-btn" onclick="startCamera()">📷 Start Camera</button>
+      <button class="btn btn-primary" id="capture-btn" onclick="captureAndScan()" style="display:none" disabled>⚡ Capture & Scan</button>
+      <button class="btn btn-stop" id="stop-btn" onclick="stopCamera()" style="display:none">✕</button>
+    </div>
+    <div id="status">Tap Start to begin</div>
   </div>
 
   <div id="result-box">
     <div class="result-header">
-      <div class="rlabel">Paper Output</div>
-      <button class="copy-btn" id="copy-btn" onclick="copyOutput()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-        </svg>
-        Copy
-      </button>
+      <span class="rlabel">Output</span>
+      <button class="btn-copy" id="copy-btn" onclick="copyResult()">Copy</button>
     </div>
     <div id="result-text">—</div>
     <hr class="divider">
-    <div class="rlabel">Extracted Code</div>
-    <div id="raw-text">—</div>
-    <hr class="divider">
-    <div class="rlabel">Raw OCR Text</div>
-    <div id="ocr-raw">—</div>
+    <div class="rlabel">Extracted</div>
+    <div id="raw-text" style="font-size: 0.8rem; color: #94a3b8; font-family: monospace;">—</div>
   </div>
 
-  <div id="bottom-actions">
-    <button class="btn-primary"   id="start-btn"  onclick="startCamera()">📷 Start Camera</button>
-    <button class="btn-secondary" id="upload-btn" onclick="triggerUpload()">🖼 Upload Image</button>
-  </div>
-
-  <input type="file" id="upload-input" accept="image/*" onchange="handleUpload(event)">
+  <canvas id="canvas"></canvas>
 
   <script>
-    const video         = document.getElementById('video');
-    const canvas        = document.getElementById('canvas');
-    const ctx           = canvas.getContext('2d');
-    const resultEl      = document.getElementById('result-text');
-    const rawEl         = document.getElementById('raw-text');
-    const ocrRawEl      = document.getElementById('ocr-raw');
-    const statusEl      = document.getElementById('status');
-    const vcEl          = document.getElementById('video-container');
-    const startBtn      = document.getElementById('start-btn');
-    const uploadBtn     = document.getElementById('upload-btn');
-    const captureBtn    = document.getElementById('capture-btn');
-    const stopBtn       = document.getElementById('stop-btn');
-    const progressWrap  = document.getElementById('progress-bar-wrap');
-    const progressBar   = document.getElementById('progress-bar');
-    const cameraActions = document.getElementById('camera-actions');
-    const uploadInput   = document.getElementById('upload-input');
-    const previewWrap   = document.getElementById('upload-preview-wrap');
-    const previewImg    = document.getElementById('upload-preview');
-    const uploadHint    = document.getElementById('upload-hint');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const resultEl = document.getElementById('result-text');
+    const rawEl = document.getElementById('raw-text');
+    const statusEl = document.getElementById('status');
+    const progressWrap = document.getElementById('progress-bar-wrap');
+    const progressBar = document.getElementById('progress-bar');
+    const captureBtn = document.getElementById('capture-btn');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const copyBtn = document.getElementById('copy-btn');
 
     let stream = null;
 
-    function outPaper(code) {
-      const p  = code.replace(/\//g, '').replace(/\s/g, '').trim();
-      let out  = 'Paper ' + p[4] + ' Variant ' + p[5];
-      const sf = p[6].toUpperCase();
-      if      (sf === 'F')               out += ' March';
-      else if (sf === 'M')               out += ' Summer';
-      else if (sf === 'O' || sf === '0') out += ' Winter';
-      else                               out += ' ' + p.substring(6, 8);
-      out += ' 20' + p.slice(-2);
-      return out;
-    }
-
-    function preprocessForOCR(srcCanvas) {
-      const SCALE = 3;
-      const w = srcCanvas.width  * SCALE;
-      const h = srcCanvas.height * SCALE;
-      const dst  = document.createElement('canvas');
-      dst.width  = w;
-      dst.height = h;
-      const dc   = dst.getContext('2d');
-      dc.filter = 'grayscale(1) contrast(2) brightness(1.06)';
-      dc.imageSmoothingEnabled = true;
-      dc.imageSmoothingQuality = 'high';
-      dc.drawImage(srcCanvas, 0, 0, w, h);
-      dc.filter = 'none';
-      applySharpen(dc, w, h, 0.45);
-      return dst;
-    }
-
-    function applySharpen(dc, w, h, mix) {
-      const idata = dc.getImageData(0, 0, w, h);
-      const src   = new Uint8ClampedArray(idata.data);
-      const d     = idata.data;
-      const K     = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-      for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-          let v = 0;
-          for (let ky = -1; ky <= 1; ky++)
-            for (let kx = -1; kx <= 1; kx++)
-              v += src[((y + ky) * w + (x + kx)) * 4] * K[(ky + 1) * 3 + (kx + 1)];
-          const i   = (y * w + x) * 4;
-          const val = Math.min(255, Math.max(0, src[i] * (1 - mix) + v * mix));
-          d[i] = d[i + 1] = d[i + 2] = val;
-          d[i + 3] = 255;
-        }
-      }
-      dc.putImageData(idata, 0, 0);
+    function outPaper(scannedString) {
+      const p = scannedString.replace(/\//g, '').replace(/\s/g, '').trim();
+      let variant = 'Variant ' + p.substring(4, 6);
+      const sessionMap = { 'FM': 'March', 'MJ': 'Summer', 'ON': 'Winter' };
+      const session = sessionMap[p.substring(6, 8).toUpperCase()] || p.substring(6, 8).toUpperCase();
+      return `${variant} ${session} 20${p.slice(-2)}`;
     }
 
     function extractCode(raw) {
       const text = raw.replace(/\s+/g, ' ').trim();
-      function normD(s) {
-        return s
-          .replace(/[oO]/g, '0')
-          .replace(/[lI]/g,  '1')
-          .replace(/[sS]/g,  '5')
-          .replace(/[zZ]/g,  '2')
-          .replace(/[gG]/g,  '9')
-          .replace(/[bB]/g,  '8');
-      }
-      const SEP = '[\\s\\/\\-\u2013\u2014\u2015\u2212\\_\\|\\.\\u00b7]*';
-      function tryMatch(t) {
-        let m = t.match(new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z]{2})' + SEP + '(\\d{2})(?!\\d)'));
-        if (m) return `${normD(m[1])}/${normD(m[2])}/${m[3].toUpperCase()}/${normD(m[4])}`;
-        m = t.match(new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z0])' + SEP + '([A-Za-z])' + SEP + '(\\d{2})(?!\\d)'));
-        if (m) return `${normD(m[1])}/${normD(m[2])}/${(m[3] + m[4]).toUpperCase()}/${normD(m[5])}`;
-        m = t.match(/(\d{4})(\d{2})([A-Za-z]{2})(\d{2})(?!\d)/);
-        if (m) return `${m[1]}/${m[2]}/${m[3].toUpperCase()}/${m[4]}`;
-        m = t.match(/(\d{4})(\d{2})([A-Za-z])([A-Za-z])(\d{2})(?!\d)/);
-        if (m) return `${m[1]}/${m[2]}/${(m[3] + m[4]).toUpperCase()}/${m[5]}`;
-        return null;
-      }
-      return tryMatch(text) || tryMatch(normD(text));
-    }
-
-    async function runOCR(srcCanvas) {
-      ocrRawEl.textContent = '—';
-      try {
-        setStatus('Preprocessing image…', 'loading');
-        const processed = preprocessForOCR(srcCanvas);
-        progressWrap.style.display = 'block';
-        progressBar.style.width    = '0%';
-        setStatus('Reading text…', 'loading');
-        const { data: { text } } = await Tesseract.recognize(processed, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              const pct = Math.round(m.progress * 100);
-              progressBar.style.width = pct + '%';
-              setStatus('Reading… ' + pct + '%', 'loading');
-            }
-          }
-        });
-        const ocrText = text.trim();
-        ocrRawEl.textContent = ocrText || '(nothing detected)';
-        const code = extractCode(ocrText);
-        if (code) {
-          rawEl.textContent = code;
-          try { resultEl.textContent = outPaper(code); }
-          catch { resultEl.textContent = code; }
-          setStatus('✅ Code found!', 'success');
-        } else {
-          rawEl.textContent    = '—';
-          resultEl.textContent = '—';
-          setStatus('⚠️ No valid code found — try holding steadier or closer.', 'error');
-        }
-      } catch (err) {
-        setStatus('Error: ' + (err.message || JSON.stringify(err)), 'error');
-      }
-      progressWrap.style.display = 'none';
+      let m = text.match(/\d{4}\/\d{1,3}\/[A-Za-z]{2}\/\d{2}/) || 
+              text.match(/(\d{4})\/(\d{1,3})\/([A-Za-z])\/([A-Za-z])\/(\d{2})/) ||
+              text.match(/(\d{4})[\s\/\-](\d{1,3})[\s\/\-]([A-Za-z]{1,2})[\s\/\-]?([A-Za-z]{0,1})[\s\/\-](\d{2})/);
+      
+      if (!m) return null;
+      if (Array.isArray(m) && m.length > 4) return `${m[1]}/${m[2]}/${(m[3]+(m[4]||'')).toUpperCase()}/${m[m.length-1]}`;
+      return m[0];
     }
 
     async function startCamera() {
       try {
-        setStatus('Requesting camera permission…', 'active');
-        previewWrap.style.display = 'none';
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+          video: { facingMode: 'environment', width: { ideal: 1280 } }
         });
         video.srcObject = stream;
-        await video.play();
-        vcEl.style.display          = 'block';
-        startBtn.style.display      = 'none';
-        uploadBtn.style.display     = 'none';
-        cameraActions.style.display = 'flex';
-        captureBtn.style.display    = 'inline-block';
-        stopBtn.style.display       = 'inline-block';
-        captureBtn.disabled         = false;
-        setStatus('Ready — align the code and tap Capture.', 'active');
+        document.getElementById('video-container').style.display = 'block';
+        startBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        stopBtn.style.display = 'inline-block';
+        captureBtn.disabled = false;
+        statusEl.textContent = 'Align and Capture';
       } catch (err) {
-        setStatus('Camera error: ' + err.message, 'error');
+        statusEl.textContent = 'Camera Error: ' + err.message;
       }
     }
 
     async function captureAndScan() {
       captureBtn.disabled = true;
-      canvas.width  = video.videoWidth;
+      progressWrap.style.display = 'block';
+      progressBar.style.width = '0%';
+      statusEl.className = 'loading';
+      statusEl.textContent = 'Processing...';
+
+      canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0);
-      await runOCR(canvas);
+
+      try {
+        const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              progressBar.style.width = Math.round(m.progress * 100) + '%';
+            }
+          }
+        });
+
+        const code = extractCode(text);
+        if (code) {
+          rawEl.textContent = code;
+          resultEl.textContent = outPaper(code);
+          statusEl.className = 'success';
+          statusEl.textContent = '✅ Success';
+        } else {
+          statusEl.className = '';
+          statusEl.textContent = '❌ Try again';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+      progressWrap.style.display = 'none';
       captureBtn.disabled = false;
     }
 
     function stopCamera() {
       if (stream) stream.getTracks().forEach(t => t.stop());
-      vcEl.style.display          = 'none';
-      startBtn.style.display      = 'inline-block';
-      uploadBtn.style.display     = 'inline-block';
-      cameraActions.style.display = 'none';
-      captureBtn.style.display    = 'none';
-      stopBtn.style.display       = 'none';
-      captureBtn.disabled         = true;
-      progressWrap.style.display  = 'none';
-      setStatus('Camera stopped.', '');
+      document.getElementById('video-container').style.display = 'none';
+      startBtn.style.display = 'inline-block';
+      captureBtn.style.display = 'none';
+      stopBtn.style.display = 'none';
+      statusEl.textContent = 'Tap Start to begin';
     }
 
-    function triggerUpload() {
-      uploadInput.value = '';
-      uploadInput.click();
-    }
-
-    function handleUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          previewImg.src = e.target.result;
-          previewWrap.style.display = 'block';
-          uploadHint.textContent = '✂️ Cropping bottom-centre for the paper code…';
-          const cropW = Math.round(img.width  * 0.70);
-          const cropH = Math.round(img.height * 0.22);
-          const cropX = Math.round((img.width  - cropW) / 2);
-          const cropY = img.height - cropH;
-          canvas.width  = cropW;
-          canvas.height = cropH;
-          ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-          uploadHint.textContent = '';
-          runOCR(canvas);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function copyOutput() {
+    function copyResult() {
       const text = resultEl.textContent;
-      if (!text || text === '—') return;
+      if (text === '—') return;
       navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = '✓ Copied';
-        btn.classList.add('copied');
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('success');
         setTimeout(() => {
-          btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy`;
-          btn.classList.remove('copied');
-        }, 2000);
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('success');
+        }, 1500);
       });
-    }
-
-    function setStatus(msg, cls) {
-      statusEl.textContent = msg;
-      statusEl.className   = cls;
     }
   </script>
 </body>
