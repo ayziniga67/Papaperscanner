@@ -95,9 +95,10 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-      // Added lowercase letters back to the whitelist so f/m isn't ignored
+      // Expanding whitelist to allow Tesseract to clearly see weird separators 
+      // without mistaking them for letters/numbers.
       await worker.setParameters({
-        tessedit_char_whitelist: '0123456789/MFJONmfjon- ',
+        tessedit_char_whitelist: '0123456789MFJONmfjon/\\-.,;:_[]{}\| ',
       });
     }
 
@@ -116,8 +117,9 @@
     }
 
     function extractCode(raw) {
-      // FIX: Keep both uppercase AND lowercase letters, then capitalize them.
-      // The previous bug destroyed 'f/m' before it could be read.
+      // The ultimate cleaner: 
+      // This deletes absolutely every character that is NOT a number (0-9) or a letter (A-Z/a-z).
+      // So regardless of whether it's 9709/52/F/M/20 or 9709.52_f-m|20, it instantly becomes 970952FM20.
       const clean = raw.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
       
       // LOGIC: (Subject:4 digits) (Paper:1-8) (Variant:1-6) (Session:MFJON) (Year:20-26)
@@ -165,14 +167,14 @@
         if (match) {
           const finalStr = formatFinal(match);
           resultEl.textContent = finalStr;
-          // Format it beautifully with slashes
+          // Format it beautifully with standardized slashes for the "Detected Code" box
           rawEl.textContent = `${match[1]}/${match[2]}${match[3]}/${match[4]}/${match[5]}`;
           statusEl.textContent = '✅ Copied to clipboard!';
           navigator.clipboard.writeText(finalStr);
         } else {
           statusEl.textContent = '❌ No code found. Move closer.';
           // Show what it ACTUALLY saw so you can debug if you hold it too far
-          rawEl.textContent = "Scanner saw: " + text.replace(/\s/g, '').substring(0, 15);
+          rawEl.textContent = "Scanner saw: " + text.replace(/\s/g, '').substring(0, 20);
         }
       } catch (err) {
         statusEl.textContent = 'Scanner error. Try again.';
