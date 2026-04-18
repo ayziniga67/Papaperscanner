@@ -29,63 +29,6 @@
       line-height: 1.6;
     }
 
-    /* ── Mode toggle ── */
-    #mode-row {
-      display: flex;
-      gap: 8px;
-      background: #1e293b;
-      border-radius: 50px;
-      padding: 4px;
-      border: 1px solid #334155;
-    }
-    .mode-btn {
-      padding: 7px 18px;
-      border: none;
-      border-radius: 50px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-      background: transparent;
-      color: #64748b;
-    }
-    .mode-btn.active {
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: white;
-    }
-
-    /* ── API key panel ── */
-    #api-panel {
-      display: none;
-      width: 100%;
-      max-width: 420px;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 14px;
-      padding: 14px 16px;
-      gap: 8px;
-      flex-direction: column;
-    }
-    #api-panel.visible { display: flex; }
-    #api-panel label { font-size: 0.75rem; color: #94a3b8; }
-    #api-key-input {
-      width: 100%;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      color: white;
-      font-size: 0.82rem;
-      padding: 8px 12px;
-      outline: none;
-      font-family: monospace;
-    }
-    #api-key-input:focus { border-color: #6366f1; }
-    #api-note {
-      font-size: 0.7rem;
-      color: #475569;
-      line-height: 1.5;
-    }
-
     /* ── Camera ── */
     #video-container {
       position: relative;
@@ -250,35 +193,17 @@
 
   <h1>📄 Cambridge Paper Scanner</h1>
   <p class="subtitle">
-    Printed or handwritten — align the code in the box<br>
-    (e.g. <code style="color:#93c5fd">9709/12/MJ/23</code> or <code style="color:#93c5fd">9618─11─MJ─23</code>)<br>
+    Align the code in the box<br>
+    (e.g. <code style="color:#93c5fd">9709/12/MJ/23</code>)<br>
     Slashes written as lines or dashes are handled automatically.
   </p>
 
-  <!-- Mode selector -->
-  <div id="mode-row">
-    <button class="mode-btn active" id="mode-print-btn" onclick="setMode('print')">🖨 Printed Text</button>
-    <button class="mode-btn"        id="mode-hw-btn"    onclick="setMode('handwriting')">✍️ Handwriting / AI</button>
-  </div>
-
-  <!-- API key panel (handwriting mode only) -->
-  <div id="api-panel">
-    <label for="api-key-input">Anthropic API Key — stays in memory only, never saved</label>
-    <input id="api-key-input" type="password" placeholder="sk-ant-api03-…" spellcheck="false" autocomplete="off">
-    <div id="api-note">
-      Sends the image to Claude Vision to read handwriting.<br>
-      Get a key at <strong style="color:#93c5fd">console.anthropic.com</strong> · Cost ≈ $0.001 per scan.
-    </div>
-  </div>
-
-  <!-- Camera feed -->
   <div id="video-container">
     <video id="video" autoplay playsinline muted></video>
     <div id="aim-box"></div>
     <div id="aim-label">Align code within box</div>
   </div>
 
-  <!-- Upload preview -->
   <div id="upload-preview-wrap">
     <img id="upload-preview" alt="Uploaded paper">
     <div id="upload-hint"></div>
@@ -286,17 +211,14 @@
 
   <canvas id="canvas"></canvas>
 
-  <!-- Status + progress bar — directly below camera -->
   <div id="status">Press Start Camera or Upload Image</div>
   <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
 
-  <!-- Capture + Stop — directly below progress bar -->
   <div id="camera-actions">
     <button class="btn-scan" id="capture-btn" onclick="captureAndScan()" disabled>⚡ Capture &amp; Scan</button>
     <button class="btn-stop" id="stop-btn"    onclick="stopCamera()">✕ Stop</button>
   </div>
 
-  <!-- Result box -->
   <div id="result-box">
     <div class="result-header">
       <div class="rlabel">Paper Output</div>
@@ -317,7 +239,6 @@
     <div id="ocr-raw">—</div>
   </div>
 
-  <!-- Bottom actions -->
   <div id="bottom-actions">
     <button class="btn-primary"   id="start-btn"  onclick="startCamera()">📷 Start Camera</button>
     <button class="btn-secondary" id="upload-btn" onclick="triggerUpload()">🖼 Upload Image</button>
@@ -326,7 +247,6 @@
   <input type="file" id="upload-input" accept="image/*" onchange="handleUpload(event)">
 
   <script>
-    // ── Element refs ──────────────────────────────────────────────────────────
     const video         = document.getElementById('video');
     const canvas        = document.getElementById('canvas');
     const ctx           = canvas.getContext('2d');
@@ -346,21 +266,9 @@
     const previewWrap   = document.getElementById('upload-preview-wrap');
     const previewImg    = document.getElementById('upload-preview');
     const uploadHint    = document.getElementById('upload-hint');
-    const apiPanel      = document.getElementById('api-panel');
-    const apiKeyInput   = document.getElementById('api-key-input');
 
-    let stream   = null;
-    let scanMode = 'print'; // 'print' | 'handwriting'
+    let stream = null;
 
-    // ── Mode toggle ───────────────────────────────────────────────────────────
-    function setMode(m) {
-      scanMode = m;
-      document.getElementById('mode-print-btn').classList.toggle('active', m === 'print');
-      document.getElementById('mode-hw-btn').classList.toggle('active', m === 'handwriting');
-      apiPanel.classList.toggle('visible', m === 'handwriting');
-    }
-
-    // ── outPaper ──────────────────────────────────────────────────────────────
     function outPaper(code) {
       const p  = code.replace(/\//g, '').replace(/\s/g, '').trim();
       let out  = 'Paper ' + p[4] + ' Variant ' + p[5];
@@ -373,38 +281,28 @@
       return out;
     }
 
-    // ── Image preprocessing (upscale + sharpen + contrast) ───────────────────
-    // Called before Tesseract. Converts a small/blurry crop into something OCR-friendly.
     function preprocessForOCR(srcCanvas) {
       const SCALE = 3;
       const w = srcCanvas.width  * SCALE;
       const h = srcCanvas.height * SCALE;
-
       const dst  = document.createElement('canvas');
       dst.width  = w;
       dst.height = h;
       const dc   = dst.getContext('2d');
-
-      // Upscale with hardware-accelerated grayscale + contrast boost
       dc.filter = 'grayscale(1) contrast(2) brightness(1.06)';
       dc.imageSmoothingEnabled = true;
       dc.imageSmoothingQuality = 'high';
       dc.drawImage(srcCanvas, 0, 0, w, h);
       dc.filter = 'none';
-
-      // Convolution sharpen to restore edges lost to blur
       applySharpen(dc, w, h, 0.45);
-
       return dst;
     }
 
-    // 3×3 sharpen kernel blended at `mix` strength
     function applySharpen(dc, w, h, mix) {
       const idata = dc.getImageData(0, 0, w, h);
       const src   = new Uint8ClampedArray(idata.data);
       const d     = idata.data;
       const K     = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-
       for (let y = 1; y < h - 1; y++) {
         for (let x = 1; x < w - 1; x++) {
           let v = 0;
@@ -420,16 +318,8 @@
       dc.putImageData(idata, 0, 0);
     }
 
-    // ── Code extraction ───────────────────────────────────────────────────────
-    // Handles:
-    //   • Any separator: / - – — _ | · . or NONE between parts
-    //   • Horizontal lines (OCR'd as -, –, —, \u2015, \u2212)
-    //   • Fused code with no separator at all (e.g. 970912MJ23)
-    //   • Common character confusions (O→0, l/I→1, S→5, Z→2, G→9, B→8)
     function extractCode(raw) {
       const text = raw.replace(/\s+/g, ' ').trim();
-
-      // Digit normalisation (applied separately to avoid breaking letter parts)
       function normD(s) {
         return s
           .replace(/[oO]/g, '0')
@@ -439,182 +329,66 @@
           .replace(/[gG]/g,  '9')
           .replace(/[bB]/g,  '8');
       }
-
-      // Flexible separator — any combination of these chars, including none
-      // covers slash, hyphens, em/en dashes, horizontal bar, minus sign, underscores,
-      // pipes, dots, middle dots and whitespace
       const SEP = '[\\s\\/\\-\u2013\u2014\u2015\u2212\\_\\|\\.\\u00b7]*';
-
       function tryMatch(t) {
-        // A) 4d SEP 1-2d SEP 2L SEP 2d
-        let m = t.match(
-          new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z]{2})' + SEP + '(\\d{2})(?!\\d)')
-        );
+        let m = t.match(new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z]{2})' + SEP + '(\\d{2})(?!\\d)'));
         if (m) return `${normD(m[1])}/${normD(m[2])}/${m[3].toUpperCase()}/${normD(m[4])}`;
-
-        // B) Split session: 4d SEP 1-2d SEP 1L SEP 1L SEP 2d
-        m = t.match(
-          new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z0])' + SEP + '([A-Za-z])' + SEP + '(\\d{2})(?!\\d)')
-        );
+        m = t.match(new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z0])' + SEP + '([A-Za-z])' + SEP + '(\\d{2})(?!\\d)'));
         if (m) return `${normD(m[1])}/${normD(m[2])}/${(m[3] + m[4]).toUpperCase()}/${normD(m[5])}`;
-
-        // C) No separator — 4d 2d 2L 2d
         m = t.match(/(\d{4})(\d{2})([A-Za-z]{2})(\d{2})(?!\d)/);
         if (m) return `${m[1]}/${m[2]}/${m[3].toUpperCase()}/${m[4]}`;
-
-        // D) No separator, split session — 4d 2d 1L 1L 2d
         m = t.match(/(\d{4})(\d{2})([A-Za-z])([A-Za-z])(\d{2})(?!\d)/);
         if (m) return `${m[1]}/${m[2]}/${(m[3] + m[4]).toUpperCase()}/${m[5]}`;
-
         return null;
       }
-
-      // Try on original text first, then on digit-normalised copy
       return tryMatch(text) || tryMatch(normD(text));
     }
 
-    // ── Claude Vision (handwriting mode) ─────────────────────────────────────
-    async function scanWithClaude(srcCanvas) {
-      const apiKey = apiKeyInput.value.trim();
-      if (!apiKey) throw new Error('Enter your Anthropic API key in the panel above to use Handwriting / AI mode.');
-
-      // Downscale to ≤1024px wide before sending (saves cost, Claude Vision doesn't need more)
-      const MAX = 1024;
-      const sf  = srcCanvas.width > MAX ? MAX / srcCanvas.width : 1;
-      const sw  = Math.round(srcCanvas.width  * sf);
-      const sh  = Math.round(srcCanvas.height * sf);
-      const tmp = document.createElement('canvas');
-      tmp.width  = sw;
-      tmp.height = sh;
-      tmp.getContext('2d').drawImage(srcCanvas, 0, 0, sw, sh);
-      const base64 = tmp.toDataURL('image/jpeg', 0.92).split(',')[1];
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 64,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-              { type: 'text',  text:
-`This image contains a Cambridge International A-Level exam paper identifier code.
-It may be printed OR handwritten. Format: [4-digit subject]/[paper]/[session]/[year]
-Examples: 9709/12/MJ/23  |  9618/11/ON/24  |  9702/12/FM/20
-Sessions: MJ=May-June  ON=Oct-Nov  FM=Feb-March
-IMPORTANT: "/" may be written as a horizontal dash, line stroke, or any divider.
-Extract the code and return it in EXACTLY this format: NNNN/NN/LL/NN
-Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
-            ]
-          }]
-        })
-      });
-
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e?.error?.message || `API error ${res.status}`);
-      }
-
-      const data   = await res.json();
-      const result = (data?.content?.[0]?.text || '').trim();
-      return result === 'NOT_FOUND' ? null : result;
-    }
-
-    // ── Shared OCR runner ─────────────────────────────────────────────────────
     async function runOCR(srcCanvas) {
       ocrRawEl.textContent = '—';
-
       try {
-        if (scanMode === 'handwriting') {
-          // ── Claude Vision path ──────────────────────────────────────────────
-          setStatus('Sending to Claude Vision…', 'loading');
-          progressWrap.style.display = 'block';
-          progressBar.style.width    = '55%';
-
-          const code = await scanWithClaude(srcCanvas);
-          progressBar.style.width = '100%';
-
-          ocrRawEl.textContent = code
-            ? `(via Claude Vision: ${code})`
-            : '(Claude Vision: no code found)';
-
-          if (code) {
-            rawEl.textContent = code;
-            try   { resultEl.textContent = outPaper(code); }
-            catch { resultEl.textContent = code; }
-            setStatus('✅ Code found via AI!', 'success');
-          } else {
-            rawEl.textContent    = '—';
-            resultEl.textContent = '—';
-            setStatus('⚠️ Claude could not find a code — try a clearer image.', 'error');
-          }
-
-        } else {
-          // ── Tesseract path (with preprocessing) ────────────────────────────
-          setStatus('Preprocessing image…', 'loading');
-          const processed = preprocessForOCR(srcCanvas);
-
-          progressWrap.style.display = 'block';
-          progressBar.style.width    = '0%';
-          setStatus('Reading text…', 'loading');
-
-          const { data: { text } } = await Tesseract.recognize(
-            processed,
-            'eng',
-            {
-              logger: m => {
-                if (m.status === 'recognizing text') {
-                  const pct = Math.round(m.progress * 100);
-                  progressBar.style.width = pct + '%';
-                  setStatus('Reading… ' + pct + '%', 'loading');
-                }
-              }
+        setStatus('Preprocessing image…', 'loading');
+        const processed = preprocessForOCR(srcCanvas);
+        progressWrap.style.display = 'block';
+        progressBar.style.width    = '0%';
+        setStatus('Reading text…', 'loading');
+        const { data: { text } } = await Tesseract.recognize(processed, 'eng', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const pct = Math.round(m.progress * 100);
+              progressBar.style.width = pct + '%';
+              setStatus('Reading… ' + pct + '%', 'loading');
             }
-          );
-
-          const ocrText = text.trim();
-          ocrRawEl.textContent = ocrText || '(nothing detected)';
-
-          const code = extractCode(ocrText);
-
-          if (code) {
-            rawEl.textContent = code;
-            try   { resultEl.textContent = outPaper(code); }
-            catch { resultEl.textContent = code; }
-            setStatus('✅ Code found!', 'success');
-          } else {
-            rawEl.textContent    = '—';
-            resultEl.textContent = '—';
-            setStatus('⚠️ No valid code found — try holding steadier or closer.', 'error');
           }
+        });
+        const ocrText = text.trim();
+        ocrRawEl.textContent = ocrText || '(nothing detected)';
+        const code = extractCode(ocrText);
+        if (code) {
+          rawEl.textContent = code;
+          try { resultEl.textContent = outPaper(code); }
+          catch { resultEl.textContent = code; }
+          setStatus('✅ Code found!', 'success');
+        } else {
+          rawEl.textContent    = '—';
+          resultEl.textContent = '—';
+          setStatus('⚠️ No valid code found — try holding steadier or closer.', 'error');
         }
-
       } catch (err) {
         setStatus('Error: ' + (err.message || JSON.stringify(err)), 'error');
       }
-
       progressWrap.style.display = 'none';
     }
 
-    // ── Start camera ──────────────────────────────────────────────────────────
     async function startCamera() {
       try {
         setStatus('Requesting camera permission…', 'active');
         previewWrap.style.display = 'none';
-
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
         });
         video.srcObject = stream;
         await video.play();
-
         vcEl.style.display          = 'block';
         startBtn.style.display      = 'none';
         uploadBtn.style.display     = 'none';
@@ -628,7 +402,6 @@ Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
       }
     }
 
-    // ── Capture & scan ────────────────────────────────────────────────────────
     async function captureAndScan() {
       captureBtn.disabled = true;
       canvas.width  = video.videoWidth;
@@ -638,7 +411,6 @@ Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
       captureBtn.disabled = false;
     }
 
-    // ── Stop camera ───────────────────────────────────────────────────────────
     function stopCamera() {
       if (stream) stream.getTracks().forEach(t => t.stop());
       vcEl.style.display          = 'none';
@@ -652,7 +424,6 @@ Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
       setStatus('Camera stopped.', '');
     }
 
-    // ── Upload ────────────────────────────────────────────────────────────────
     function triggerUpload() {
       uploadInput.value = '';
       uploadInput.click();
@@ -661,7 +432,6 @@ Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
     function handleUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = function(e) {
         const img = new Image();
@@ -669,18 +439,13 @@ Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
           previewImg.src = e.target.result;
           previewWrap.style.display = 'block';
           uploadHint.textContent = '✂️ Cropping bottom-centre for the paper code…';
-
-          // Crop bottom 22% height, centre 70% width
-          // Cambridge codes always appear at bottom-middle of printed papers
           const cropW = Math.round(img.width  * 0.70);
           const cropH = Math.round(img.height * 0.22);
           const cropX = Math.round((img.width  - cropW) / 2);
           const cropY = img.height - cropH;
-
           canvas.width  = cropW;
           canvas.height = cropH;
           ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
           uploadHint.textContent = '';
           runOCR(canvas);
         };
@@ -689,7 +454,6 @@ Return ONLY the code with no extra text. If not found, return: NOT_FOUND` }
       reader.readAsDataURL(file);
     }
 
-    // ── Copy output ───────────────────────────────────────────────────────────
     function copyOutput() {
       const text = resultEl.textContent;
       if (!text || text === '—') return;
