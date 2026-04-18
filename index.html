@@ -11,6 +11,7 @@
       --bg-color: #31273d;
       --card-bg: #2b2b2b;
       --accent: #7b6f86;
+      --accent-active: #a194ad;
       --text-main: #ffffff;
       --text-dim: #b3b3b3;
       --success: #34d399;
@@ -19,7 +20,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Inter', sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
       display: flex;
@@ -29,7 +30,6 @@
       padding: 40px 20px;
     }
 
-    /* Header Section */
     .header h1 {
       font-family: 'Oswald', sans-serif;
       font-size: 3.5rem;
@@ -47,7 +47,6 @@
       margin-bottom: 40px;
     }
 
-    /* Camera Container */
     #video-wrap {
       width: 100%;
       max-width: 350px;
@@ -60,6 +59,7 @@
       justify-content: center;
       align-items: center;
       margin-bottom: 25px;
+      border: 1px solid #444;
     }
 
     video { width: 100%; height: 100%; object-fit: cover; }
@@ -68,36 +68,37 @@
       position: absolute;
       width: 85%;
       height: 60px;
-      border: 1px solid rgba(255,255,255,0.3);
+      border: 2px solid rgba(255,255,255,0.4);
       border-radius: 8px;
       pointer-events: none;
+      box-shadow: 0 0 0 500px rgba(49, 39, 61, 0.5);
     }
 
-    /* Scan Button */
     .btn-scan {
       background-color: var(--accent);
       color: white;
       border: none;
-      padding: 12px 45px;
+      padding: 12px 60px;
       border-radius: 8px;
       font-size: 1.1rem;
       font-weight: bold;
       cursor: pointer;
       margin-bottom: 30px;
-      transition: opacity 0.2s;
+      transition: all 0.2s;
     }
 
-    .btn-scan:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-scan:active { transform: scale(0.95); background-color: var(--accent-active); }
+    .btn-scan:disabled { opacity: 0.5; }
 
-    /* Output Section */
     .output-card {
       width: 100%;
       max-width: 350px;
       background: var(--card-bg);
       border-radius: 12px;
-      padding: 20px;
+      padding: 24px;
       position: relative;
       min-height: 180px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
 
     .output-card h2 {
@@ -106,35 +107,53 @@
       margin-bottom: 15px;
     }
 
-    .auto-copy-tag {
+    .auto-copy-toggle {
       position: absolute;
-      top: 20px;
+      top: 24px;
       right: 20px;
       background: var(--accent);
       font-size: 0.65rem;
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 50px;
       color: white;
+      cursor: pointer;
+      border: none;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .auto-copy-toggle.off {
+      background: #444;
+      color: #888;
     }
 
     #result-text {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: bold;
       color: var(--text-main);
       margin-top: 10px;
+      line-height: 1.2;
     }
 
     #status {
       font-size: 0.8rem;
       color: var(--text-dim);
-      margin-top: 8px;
+      margin-top: 12px;
+    }
+
+    #progress-wrap {
+      width: 100%;
+      height: 4px;
+      background: #111;
+      margin-top: 15px;
+      border-radius: 2px;
+      overflow: hidden;
     }
 
     #progress-bar {
-      height: 4px;
+      height: 100%;
       background: var(--success);
       width: 0%;
-      margin-top: 10px;
       transition: width 0.1s;
     }
 
@@ -151,17 +170,17 @@
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
     <div id="aim-box"></div>
-    <div id="init-overlay" style="position:absolute; background: var(--card-bg); padding: 10px; cursor: pointer;" onclick="startCamera()">Tap to Start Camera</div>
+    <div id="init-overlay" style="position:absolute; z-index:10; background: var(--card-bg); padding: 15px 30px; border-radius:8px; cursor: pointer; font-weight:bold;" onclick="startCamera()">TAP TO START</div>
   </div>
 
   <button class="btn-scan" id="capture-btn" onclick="captureAndScan()">scan</button>
 
   <div class="output-card">
-    <div class="auto-copy-tag" id="copy-tag">auto copy on</div>
+    <button class="auto-copy-toggle" id="copy-toggle" onclick="toggleAutoCopy()">auto copy on</button>
     <h2>Output</h2>
     <div id="result-text">xyz</div>
     <div id="status">Engine ready</div>
-    <div id="progress-bar"></div>
+    <div id="progress-wrap"><div id="progress-bar"></div></div>
   </div>
 
   <canvas id="canvas"></canvas>
@@ -174,10 +193,17 @@
     const statusEl = document.getElementById('status');
     const captureBtn = document.getElementById('capture-btn');
     const progressBar = document.getElementById('progress-bar');
-    const copyTag = document.getElementById('copy-tag');
+    const copyToggle = document.getElementById('copy-toggle');
     
     let stream = null;
     let worker = null;
+    let autoCopyActive = true;
+
+    function toggleAutoCopy() {
+      autoCopyActive = !autoCopyActive;
+      copyToggle.textContent = autoCopyActive ? 'auto copy on' : 'auto copy off';
+      copyToggle.className = autoCopyActive ? 'auto-copy-toggle' : 'auto-copy-toggle off';
+    }
 
     async function initWorker() {
       if (worker) return;
@@ -197,16 +223,28 @@
     }
 
     function extractCode(raw) {
+      // 1. Clean data to pure Uppercase characters
       const clean = raw.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
-      const regex = /(\d{4})([1-8])([1-6])([MFJON]{1,4})(2[0-6])/;
+      
+      // 2. Logic: Subject(4) Paper(1-8) Variant(1-6) Session(2 chars) Year(2 chars)
+      const regex = /(\d{4})([1-8])([1-6])([MFJON]{2})(\d{2})/;
       const m = clean.match(regex);
+      
       if (m) {
         const sess = m[4];
-        let sName = sess;
-        if (/[FM]/.test(sess)) sName = 'March';
-        else if (/[MJ]/.test(sess)) sName = 'Summer';
-        else if (/[ON]/.test(sess)) sName = 'Winter';
-        return `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
+        const year = m[5];
+        let sName = "";
+
+        // Specific Mapping for Cambridge Sessions
+        if (sess === "FM") sName = "March";
+        else if (sess === "MJ") sName = "Summer";
+        else if (sess === "ON") sName = "Winter";
+        else sName = sess; // Fallback to raw if it's weird
+
+        // Year constraint check (20-26)
+        if (parseInt(year) < 20 || parseInt(year) > 26) return null;
+
+        return `Paper ${m[2]} Variant ${m[3]} ${sName} 20${year}`;
       }
       return null;
     }
@@ -219,9 +257,9 @@
           video: { facingMode: 'environment', width: { ideal: 1280 } }
         });
         video.srcObject = stream;
-        statusEl.textContent = 'Camera ready';
+        statusEl.textContent = 'Ready to scan';
       } catch (err) {
-        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.textContent = 'Camera error: ' + err.message;
       }
     }
 
@@ -229,10 +267,13 @@
       if (!stream) return;
       captureBtn.disabled = true;
       statusEl.textContent = 'Scanning...';
+      progressBar.style.width = '0%';
 
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      ctx.filter = 'grayscale(100%) contrast(250%)';
+      
+      // Filter for clarity
+      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
       ctx.drawImage(video, 0, 0);
       
       try {
@@ -241,20 +282,23 @@
         
         if (final) {
           resultEl.textContent = final;
-          statusEl.textContent = '✅ Success';
-          navigator.clipboard.writeText(final);
-          copyTag.textContent = 'copied!';
-          setTimeout(() => { copyTag.textContent = 'auto copy on'; }, 2000);
+          statusEl.textContent = '✅ Scan complete';
+          
+          if (autoCopyActive) {
+            navigator.clipboard.writeText(final);
+            const originalText = copyToggle.textContent;
+            copyToggle.textContent = 'COPIED!';
+            setTimeout(() => { copyToggle.textContent = originalText; }, 1500);
+          }
         } else {
           resultEl.textContent = 'xyz';
-          statusEl.textContent = '❌ Try moving closer';
+          statusEl.textContent = '❌ Invalid code pattern';
         }
       } catch (err) {
-        statusEl.textContent = 'Scanner error';
+        statusEl.textContent = 'Scan failed. Try again.';
       }
       
       captureBtn.disabled = false;
-      progressBar.style.width = '0%';
     }
   </script>
 </body>
