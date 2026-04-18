@@ -7,127 +7,38 @@
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f172a;
-      color: white;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px 16px;
-      gap: 12px;
+      background: #0f172a; color: white; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; padding: 20px 16px; gap: 12px;
     }
-
     h1 { font-size: 1.3rem; color: #60a5fa; }
-    p.subtitle { font-size: 0.8rem; color: #64748b; text-align: center; }
-
     #video-container {
-      position: relative;
-      width: 100%;
-      max-width: 420px;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 2px solid #1e40af;
-      display: none;
+      position: relative; width: 100%; max-width: 420px; border-radius: 16px;
+      overflow: hidden; border: 2px solid #1e40af; display: none;
       box-shadow: 0 0 30px rgba(59,130,246,0.2);
     }
     video { width: 100%; display: block; }
     #aim-box {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 85%; height: 65px;
-      border: 2px solid #60a5fa;
-      border-radius: 6px;
-      pointer-events: none;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 85%; height: 65px; border: 2px solid #60a5fa; border-radius: 6px; pointer-events: none;
     }
-
-    .camera-controls {
-      width: 100%;
-      max-width: 420px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    #progress-bar-wrap {
-      width: 100%;
-      height: 6px;
-      background: #1e293b;
-      border-radius: 10px;
-      display: none;
-      overflow: hidden;
-    }
-    #progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #3b82f6, #34d399);
-      transition: width 0.2s;
-    }
-
+    .camera-controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+    #progress-bar-wrap { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; display: none; overflow: hidden; }
+    #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #34d399); transition: width 0.1s; }
     .action-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
-
-    #result-box {
-      width: 100%;
-      max-width: 420px;
-      background: #1e293b;
-      border-radius: 14px;
-      padding: 16px;
-      border: 1px solid #334155;
-    }
-
-    .result-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .rlabel {
-      font-size: 0.65rem;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    #result-text {
-      font-size: 1.15rem;
-      color: #34d399;
-      font-weight: 700;
-      word-break: break-word;
-    }
-
-    .btn {
-      padding: 12px 24px;
-      border-radius: 50px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-      font-size: 0.9rem;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: white;
-      box-shadow: 0 4px 15px rgba(99,102,241,0.3);
-    }
-    .btn-primary:active { transform: scale(0.96); }
-    .btn-copy {
-      padding: 4px 12px;
-      font-size: 0.75rem;
-      background: #334155;
-      color: #e2e8f0;
-      border-radius: 6px;
-    }
+    #result-box { width: 100%; max-width: 420px; background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .rlabel { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+    #result-text { font-size: 1.15rem; color: #34d399; font-weight: 700; }
+    .btn { padding: 12px 24px; border-radius: 50px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-size: 0.9rem; }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
+    .btn-copy { padding: 4px 12px; font-size: 0.75rem; background: #334155; color: #e2e8f0; border-radius: 6px; }
     .btn-copy.success { background: #059669; color: white; }
     .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; }
-
     #status { font-size: 0.8rem; color: #94a3b8; text-align: center; }
     #status.loading { color: #facc15; }
     #status.success { color: #34d399; }
-
     canvas { display: none; }
     .divider { border: none; border-top: 1px solid #334155; margin: 10px 0; }
   </style>
@@ -135,7 +46,6 @@
 <body>
 
   <h1>📄 Cambridge Paper Scanner</h1>
-  <p class="subtitle">Align code in box then Capture</p>
 
   <div id="video-container">
     <video id="video" autoplay playsinline muted></video>
@@ -149,13 +59,13 @@
       <button class="btn btn-primary" id="capture-btn" onclick="captureAndScan()" style="display:none" disabled>⚡ Capture & Scan</button>
       <button class="btn btn-stop" id="stop-btn" onclick="stopCamera()" style="display:none">✕</button>
     </div>
-    <div id="status">Tap Start to begin</div>
+    <div id="status">Tap Start</div>
   </div>
 
   <div id="result-box">
     <div class="result-header">
       <span class="rlabel">Output</span>
-      <button class="btn-copy" id="copy-btn" onclick="copyResult()">Copy</button>
+      <button class="btn-copy" id="copy-btn">Auto-Copy On</button>
     </div>
     <div id="result-text">—</div>
     <hr class="divider">
@@ -168,7 +78,7 @@
   <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const resultEl = document.getElementById('result-text');
     const rawEl = document.getElementById('raw-text');
     const statusEl = document.getElementById('status');
@@ -180,18 +90,32 @@
     const copyBtn = document.getElementById('copy-btn');
 
     let stream = null;
+    let worker = null;
 
-    // ── Fixed Logic: Splits Paper and Variant correctly ─────────────────────
+    // Fast worker initialization
+    async function initWorker() {
+      if (worker) return;
+      worker = Tesseract.createWorker({
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            progressBar.style.width = Math.round(m.progress * 100) + '%';
+          }
+        }
+      });
+      await worker.load();
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng');
+      // Optimization: restrict to characters found in Cambridge codes
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-',
+      });
+    }
+
     function outPaper(scannedString) {
       const p = scannedString.replace(/\//g, '').replace(/\s/g, '').trim();
-      
-      // p[4] is Paper, p[5] is Variant
       let output = 'Paper ' + p[4] + ' Variant ' + p[5];
-      
-      const sessionPart = p.substring(6, 8).toUpperCase();
       const sessionMap = { 'FM': 'March', 'MJ': 'Summer', 'ON': 'Winter' };
-      const sessionName = sessionMap[sessionPart] || sessionPart;
-      
+      const sessionName = sessionMap[p.substring(6, 8).toUpperCase()] || p.substring(6, 8).toUpperCase();
       return `${output} ${sessionName} 20${p.slice(-2)}`;
     }
 
@@ -203,18 +127,26 @@
       
       if (!m) return null;
       if (Array.isArray(m) && m.length > 4) {
-          // Reconstruct to standard NNNN/NN/LL/NN format
-          const subject = m[1];
-          const paperVar = m[2].padStart(2, '0'); // Ensure 2 digits for paper/variant
-          const session = (m[3]+(m[4]||'')).toUpperCase();
-          const year = m[5];
-          return `${subject}/${paperVar}/${session}/${year}`;
+          return `${m[1]}/${m[2].padStart(2, '0')}/${(m[3]+(m[4]||'')).toUpperCase()}/${m[5]}`;
       }
       return m[0];
     }
 
+    function autoCopy(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = '✓ Copied!';
+        copyBtn.classList.add('success');
+        setTimeout(() => {
+          copyBtn.textContent = 'Auto-Copy On';
+          copyBtn.classList.remove('success');
+        }, 1500);
+      });
+    }
+
     async function startCamera() {
       try {
+        statusEl.textContent = 'Waking up engine...';
+        await initWorker(); // Pre-warm Tesseract
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 } }
         });
@@ -224,9 +156,9 @@
         captureBtn.style.display = 'inline-block';
         stopBtn.style.display = 'inline-block';
         captureBtn.disabled = false;
-        statusEl.textContent = 'Align and Capture';
+        statusEl.textContent = 'Ready';
       } catch (err) {
-        statusEl.textContent = 'Camera Error: ' + err.message;
+        statusEl.textContent = 'Error: ' + err.message;
       }
     }
 
@@ -235,33 +167,30 @@
       progressWrap.style.display = 'block';
       progressBar.style.width = '0%';
       statusEl.className = 'loading';
-      statusEl.textContent = 'Processing...';
+      statusEl.textContent = 'Scanning...';
 
+      // Use a smaller crop for faster processing (central area)
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0);
 
       try {
-        const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              progressBar.style.width = Math.round(m.progress * 100) + '%';
-            }
-          }
-        });
-
+        const { data: { text } } = await worker.recognize(canvas);
         const code = extractCode(text);
+        
         if (code) {
+          const finalOutput = outPaper(code);
           rawEl.textContent = code;
-          resultEl.textContent = outPaper(code);
+          resultEl.textContent = finalOutput;
           statusEl.className = 'success';
-          statusEl.textContent = '✅ Success';
+          statusEl.textContent = '✅ Found';
+          autoCopy(finalOutput); // Automatic Copy
         } else {
           statusEl.className = '';
-          statusEl.textContent = '❌ Try again';
+          statusEl.textContent = '❌ No code seen';
         }
       } catch (err) {
-        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.textContent = 'Retry scan';
       }
       progressWrap.style.display = 'none';
       captureBtn.disabled = false;
@@ -273,20 +202,7 @@
       startBtn.style.display = 'inline-block';
       captureBtn.style.display = 'none';
       stopBtn.style.display = 'none';
-      statusEl.textContent = 'Tap Start to begin';
-    }
-
-    function copyResult() {
-      const text = resultEl.textContent;
-      if (text === '—') return;
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = 'Copied!';
-        copyBtn.classList.add('success');
-        setTimeout(() => {
-          copyBtn.textContent = 'Copy';
-          copyBtn.classList.remove('success');
-        }, 1500);
-      });
+      statusEl.textContent = 'Stopped';
     }
   </script>
 </body>
