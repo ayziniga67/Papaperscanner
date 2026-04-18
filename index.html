@@ -21,18 +21,19 @@
     video { width: 100%; display: block; }
     #aim-box {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 85%; height: 65px; border: 2px solid #60a5fa; border-radius: 6px; pointer-events: none;
+      width: 85%; height: 60px; border: 2px solid #60a5fa; border-radius: 6px; pointer-events: none;
     }
     .camera-controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
     #progress-bar-wrap { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; display: none; overflow: hidden; }
-    #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #34d399); transition: width 0.1s; }
+    #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #34d399); }
     .action-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
     #result-box { width: 100%; max-width: 420px; background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
     .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .rlabel { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
     #result-text { font-size: 1.15rem; color: #34d399; font-weight: 700; }
-    .btn { padding: 12px 24px; border-radius: 50px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-size: 0.9rem; }
+    .btn { padding: 12px 24px; border-radius: 50px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; transition: 0.2s; }
     .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
+    .btn-primary:active { transform: scale(0.96); }
     .btn-copy { padding: 4px 12px; font-size: 0.75rem; background: #334155; color: #e2e8f0; border-radius: 6px; }
     .btn-copy.success { background: #059669; color: white; }
     .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; }
@@ -69,7 +70,7 @@
     </div>
     <div id="result-text">—</div>
     <hr class="divider">
-    <div class="rlabel">Extracted</div>
+    <div class="rlabel">Cleaned Code</div>
     <div id="raw-text" style="font-size: 0.8rem; color: #94a3b8; font-family: monospace;">—</div>
   </div>
 
@@ -86,7 +87,6 @@
     const progressBar = document.getElementById('progress-bar');
     const captureBtn = document.getElementById('capture-btn');
     const startBtn = document.getElementById('start-btn');
-    const stopBtn = document.getElementById('stop-btn');
     const copyBtn = document.getElementById('copy-btn');
 
     let stream = null;
@@ -109,50 +109,39 @@
       });
     }
 
-    function outPaper(scannedString) {
-      const p = scannedString.replace(/\//g, '').replace(/\s/g, '').replace(/-/g, '').trim();
-      let output = 'Paper ' + p[4] + ' Variant ' + p[5];
-      const sessionMap = { 'FM': 'March', 'MJ': 'Summer', 'ON': 'Winter' };
-      const sessionKey = p.substring(6, 8).toUpperCase();
-      const sessionName = sessionMap[sessionKey] || sessionKey;
-      return `${output} ${sessionName} 20${p.slice(-2)}`;
+    function formatOutput(match) {
+      const paper = match[2];
+      const variant = match[3];
+      const sessionRaw = match[4].toUpperCase();
+      const year = match[5];
+
+      let sessionName = sessionRaw;
+      if (sessionRaw.includes('F') || sessionRaw.includes('M')) sessionName = 'March';
+      else if (sessionRaw.includes('M') || sessionRaw.includes('J')) sessionName = 'Summer';
+      else if (sessionRaw.includes('O') || sessionRaw.includes('N')) sessionName = 'Winter';
+
+      return `Paper ${paper} Variant ${variant} ${sessionName} 20${year}`;
     }
 
     function extractCode(raw) {
-      // Clean text to handle OCR gaps
-      const cleanText = raw.replace(/\s+/g, '').toUpperCase();
+      // Remove all symbols and spaces to create a continuous string
+      const clean = raw.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
       
-      // PATTERN LOGIC:
-      // \d{4} = Subject
-      // [1-8] = Paper digit 1
-      // [1-6] = Variant digit 2
-      // [MFJO N]{2} = Sessions (combination of M, F, J, O, N)
-      // 2[0-6] = Year (20 to 26)
-      // Supports slashes / or dashes -
-      const regex = /(\d{4})[\/\-]?([1-8])([1-6])[\/\-]?([MFJON]{1,2})[\/\-]?(2[0-6])/;
+      // Regex Logic:
+      // (\d{4})        -> Ignore first 4 digits
+      // ([1-8])        -> Paper Number (1-8)
+      // ([1-6])        -> Variant Number (1-6)
+      // ([MFJON]{1,3}) -> Session alphabets
+      // (2[0-6])       -> Year (20-26)
+      const regex = /(\d{4})([1-8])([1-6])([MFJON]{1,3})(2[0-6])/;
       
-      const m = cleanText.match(regex);
-      if (m) {
-        // Return in standard NNNN/PP/SS/YY format
-        return `${m[1]}/${m[2]}${m[3]}/${m[4]}/${m[5]}`;
-      }
-      return null;
-    }
-
-    function autoCopy(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = '✓ Copied!';
-        copyBtn.classList.add('success');
-        setTimeout(() => {
-          copyBtn.textContent = 'Auto-Copy On';
-          copyBtn.classList.remove('success');
-        }, 1500);
-      });
+      const m = clean.match(regex);
+      return m ? m : null;
     }
 
     async function startCamera() {
       try {
-        statusEl.textContent = 'Waking up engine...';
+        statusEl.textContent = 'Engaging Engine...';
         await initWorker();
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 } }
@@ -161,7 +150,7 @@
         document.getElementById('video-container').style.display = 'block';
         startBtn.style.display = 'none';
         captureBtn.style.display = 'inline-block';
-        stopBtn.style.display = 'inline-block';
+        document.getElementById('stop-btn').style.display = 'inline-block';
         captureBtn.disabled = false;
         statusEl.textContent = 'Ready';
       } catch (err) {
@@ -172,37 +161,37 @@
     async function captureAndScan() {
       captureBtn.disabled = true;
       progressWrap.style.display = 'block';
-      progressBar.style.width = '0%';
       statusEl.className = 'loading';
       statusEl.textContent = 'Scanning...';
 
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
-      // PRE-PROCESSING: Convert to high-contrast grayscale for better OCR
-      ctx.filter = 'grayscale(100%) contrast(200%)';
+      // Pre-process for OCR clarity
+      ctx.filter = 'grayscale(100%) contrast(250%) brightness(120%)';
       ctx.drawImage(video, 0, 0);
       ctx.filter = 'none';
 
       try {
         const { data: { text } } = await worker.recognize(canvas);
-        const code = extractCode(text);
+        const match = extractCode(text);
         
-        if (code) {
-          const finalOutput = outPaper(code);
-          rawEl.textContent = code;
-          resultEl.textContent = finalOutput;
+        if (match) {
+          const formatted = formatOutput(match);
+          rawEl.textContent = `${match[1]}/${match[2]}${match[3]}/${match[4]}/${match[5]}`;
+          resultEl.textContent = formatted;
           statusEl.className = 'success';
-          statusEl.textContent = '✅ Found';
-          autoCopy(finalOutput);
+          statusEl.textContent = '✅ Copied!';
+          
+          navigator.clipboard.writeText(formatted);
+          copyBtn.classList.add('success');
+          setTimeout(() => copyBtn.classList.remove('success'), 2000);
         } else {
           statusEl.className = '';
-          statusEl.textContent = '❌ No code seen';
-          // Show raw output briefly for debugging if failed
-          rawEl.textContent = "Raw saw: " + text.substring(0,20);
+          statusEl.textContent = '❌ No valid code found. Try closer.';
         }
       } catch (err) {
-        statusEl.textContent = 'Retry scan';
+        statusEl.textContent = 'Scanner error. Retry.';
       }
       progressWrap.style.display = 'none';
       captureBtn.disabled = false;
@@ -213,8 +202,8 @@
       document.getElementById('video-container').style.display = 'none';
       startBtn.style.display = 'inline-block';
       captureBtn.style.display = 'none';
-      stopBtn.style.display = 'none';
-      statusEl.textContent = 'Stopped';
+      document.getElementById('stop-btn').style.display = 'none';
+      statusEl.textContent = 'Camera Stopped';
     }
   </script>
 </body>
