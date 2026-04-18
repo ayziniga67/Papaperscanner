@@ -92,7 +92,6 @@
     let stream = null;
     let worker = null;
 
-    // Fast worker initialization
     async function initWorker() {
       if (worker) return;
       worker = Tesseract.createWorker({
@@ -105,31 +104,39 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-      // Optimization: restrict to characters found in Cambridge codes
       await worker.setParameters({
-        tessedit_char_whitelist: '0123456789/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-',
+        tessedit_char_whitelist: '0123456789/MmFfJjOoNn- ',
       });
     }
 
     function outPaper(scannedString) {
-      const p = scannedString.replace(/\//g, '').replace(/\s/g, '').trim();
+      const p = scannedString.replace(/\//g, '').replace(/\s/g, '').replace(/-/g, '').trim();
       let output = 'Paper ' + p[4] + ' Variant ' + p[5];
       const sessionMap = { 'FM': 'March', 'MJ': 'Summer', 'ON': 'Winter' };
-      const sessionName = sessionMap[p.substring(6, 8).toUpperCase()] || p.substring(6, 8).toUpperCase();
+      const sessionKey = p.substring(6, 8).toUpperCase();
+      const sessionName = sessionMap[sessionKey] || sessionKey;
       return `${output} ${sessionName} 20${p.slice(-2)}`;
     }
 
     function extractCode(raw) {
-      const text = raw.replace(/\s+/g, ' ').trim();
-      let m = text.match(/\d{4}\/\d{1,3}\/[A-Za-z]{2}\/\d{2}/) || 
-              text.match(/(\d{4})\/(\d{1,3})\/([A-Za-z])\/([A-Za-z])\/(\d{2})/) ||
-              text.match(/(\d{4})[\s\/\-](\d{1,3})[\s\/\-]([A-Za-z]{1,2})[\s\/\-]?([A-Za-z]{0,1})[\s\/\-](\d{2})/);
+      // Clean text to handle OCR gaps
+      const cleanText = raw.replace(/\s+/g, '').toUpperCase();
       
-      if (!m) return null;
-      if (Array.isArray(m) && m.length > 4) {
-          return `${m[1]}/${m[2].padStart(2, '0')}/${(m[3]+(m[4]||'')).toUpperCase()}/${m[5]}`;
+      // PATTERN LOGIC:
+      // \d{4} = Subject
+      // [1-8] = Paper digit 1
+      // [1-6] = Variant digit 2
+      // [MFJO N]{2} = Sessions (combination of M, F, J, O, N)
+      // 2[0-6] = Year (20 to 26)
+      // Supports slashes / or dashes -
+      const regex = /(\d{4})[\/\-]?([1-8])([1-6])[\/\-]?([MFJON]{1,2})[\/\-]?(2[0-6])/;
+      
+      const m = cleanText.match(regex);
+      if (m) {
+        // Return in standard NNNN/PP/SS/YY format
+        return `${m[1]}/${m[2]}${m[3]}/${m[4]}/${m[5]}`;
       }
-      return m[0];
+      return null;
     }
 
     function autoCopy(text) {
@@ -146,7 +153,7 @@
     async function startCamera() {
       try {
         statusEl.textContent = 'Waking up engine...';
-        await initWorker(); // Pre-warm Tesseract
+        await initWorker();
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 } }
         });
@@ -169,10 +176,13 @@
       statusEl.className = 'loading';
       statusEl.textContent = 'Scanning...';
 
-      // Use a smaller crop for faster processing (central area)
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+      
+      // PRE-PROCESSING: Convert to high-contrast grayscale for better OCR
+      ctx.filter = 'grayscale(100%) contrast(200%)';
       ctx.drawImage(video, 0, 0);
+      ctx.filter = 'none';
 
       try {
         const { data: { text } } = await worker.recognize(canvas);
@@ -184,10 +194,12 @@
           resultEl.textContent = finalOutput;
           statusEl.className = 'success';
           statusEl.textContent = '✅ Found';
-          autoCopy(finalOutput); // Automatic Copy
+          autoCopy(finalOutput);
         } else {
           statusEl.className = '';
           statusEl.textContent = '❌ No code seen';
+          // Show raw output briefly for debugging if failed
+          rawEl.textContent = "Raw saw: " + text.substring(0,20);
         }
       } catch (err) {
         statusEl.textContent = 'Retry scan';
