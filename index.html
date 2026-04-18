@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cambridge Paper Scanner Pro</title>
+  <title>Cambridge Paper Scanner</title>
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,8 +21,7 @@
     video { width: 100%; display: block; }
     #aim-box {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 80%; height: 60px; border: 3px solid #34d399; border-radius: 8px; pointer-events: none;
-      box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.4); /* Darkens outside the box */
+      width: 85%; height: 70px; border: 3px solid #34d399; border-radius: 8px; pointer-events: none;
     }
     .camera-controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
     #progress-bar-wrap { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; display: none; overflow: hidden; }
@@ -34,17 +33,15 @@
     #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; }
     .btn { padding: 12px 24px; border-radius: 50px; font-weight: 700; cursor: pointer; border: none; font-size: 0.95rem; transition: 0.2s; }
     .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; width: 100%; }
-    .btn-copy { padding: 4px 12px; font-size: 0.75rem; background: #334155; color: #e2e8f0; border-radius: 6px; }
     .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; width: 60px; }
-    #status { font-size: 0.85rem; color: #94a3b8; text-align: center; font-weight: 500; }
-    .success-msg { color: #34d399 !important; }
+    #status { font-size: 0.85rem; color: #94a3b8; text-align: center; }
     canvas { display: none; }
     .divider { border: none; border-top: 1px solid #334155; margin: 10px 0; }
   </style>
 </head>
 <body>
 
-  <h1>📄 Cambridge Paper Scanner Pro</h1>
+  <h1>📄 Cambridge Paper Scanner</h1>
 
   <div id="video-container">
     <video id="video" autoplay playsinline muted></video>
@@ -62,14 +59,11 @@
   </div>
 
   <div id="result-box">
-    <div class="result-header">
-      <span class="rlabel">Output (Auto-Copied)</span>
-      <button class="btn-copy" id="copy-btn">Copy</button>
-    </div>
+    <div class="result-header"><span class="rlabel">Output (Auto-Copied)</span></div>
     <div id="result-text">—</div>
     <hr class="divider">
     <div class="rlabel">Detected Code</div>
-    <div id="raw-text" style="font-size: 0.85rem; color: #94a3b8; font-family: monospace; letter-spacing: 1px;">—</div>
+    <div id="raw-text" style="font-size: 0.85rem; color: #94a3b8; font-family: monospace;">—</div>
   </div>
 
   <canvas id="canvas"></canvas>
@@ -91,7 +85,6 @@
 
     async function initWorker() {
       if (worker) return;
-      statusEl.textContent = 'Loading AI Engine...';
       worker = Tesseract.createWorker({
         logger: m => {
           if (m.status === 'recognizing text') {
@@ -102,42 +95,43 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-      // Whitelist only the characters actually present in Cambridge codes
+      // Added lowercase letters back to the whitelist so f/m isn't ignored
       await worker.setParameters({
-        tessedit_char_whitelist: '0123456789/MFJONmfjon-',
-        tessedit_pageseg_mode: '7', // Treat as single line of text
+        tessedit_char_whitelist: '0123456789/MFJONmfjon- ',
       });
     }
 
     function formatFinal(match) {
       const pNum = match[2];
       const vNum = match[3];
-      const session = match[4].toUpperCase();
+      const sess = match[4].toUpperCase();
       const year = match[5];
 
-      let sessionStr = session;
-      if (/F|M/.test(session)) sessionStr = 'March';
-      if (/M|J/.test(session)) sessionStr = 'Summer';
-      if (/O|N/.test(session)) sessionStr = 'Winter';
+      let sName = sess;
+      if (/[FM]/.test(sess)) sName = 'March';
+      else if (/[MJ]/.test(sess)) sName = 'Summer';
+      else if (/[ON]/.test(sess)) sName = 'Winter';
 
-      return `Paper ${pNum} Variant ${vNum} ${sessionStr} 20${year}`;
+      return `Paper ${pNum} Variant ${vNum} ${sName} 20${year}`;
     }
 
     function extractCode(raw) {
-      // Clean text: Uppercase and remove everything except Alphanumeric
-      const clean = raw.replace(/[^0-9A-Z]/g, '');
+      // FIX: Keep both uppercase AND lowercase letters, then capitalize them.
+      // The previous bug destroyed 'f/m' before it could be read.
+      const clean = raw.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
       
-      // LOGIC: Subject(4) | Paper(1-8) | Variant(1-6) | Session(Letters) | Year(20-26)
+      // LOGIC: (Subject:4 digits) (Paper:1-8) (Variant:1-6) (Session:MFJON) (Year:20-26)
       const regex = /(\d{4})([1-8])([1-6])([MFJON]{1,4})(2[0-6])/;
       const m = clean.match(regex);
-      return m ? m : null;
+      return m;
     }
 
     async function startCamera() {
       try {
+        statusEl.textContent = 'Loading...';
         await initWorker();
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: { facingMode: 'environment', width: { ideal: 1280 } }
         });
         video.srcObject = stream;
         document.getElementById('video-container').style.display = 'block';
@@ -145,9 +139,9 @@
         captureBtn.style.display = 'inline-block';
         document.getElementById('stop-btn').style.display = 'inline-block';
         captureBtn.disabled = false;
-        statusEl.textContent = 'Align code inside box';
+        statusEl.textContent = 'Align and tap Capture';
       } catch (err) {
-        statusEl.textContent = 'Camera error: ' + err.message;
+        statusEl.textContent = 'Error: ' + err.message;
       }
     }
 
@@ -155,21 +149,14 @@
       captureBtn.disabled = true;
       progressWrap.style.display = 'block';
       statusEl.textContent = 'Analyzing...';
-      statusEl.className = '';
 
-      // Set canvas size to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // CROP LOGIC: Focus only on the middle 25% of the frame to avoid background noise
-      const cropW = canvas.width * 0.8;
-      const cropH = canvas.height * 0.2;
-      const cropX = (canvas.width - cropW) / 2;
-      const cropY = (canvas.height - cropH) / 2;
-
-      // Process image for high legibility
-      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
-      ctx.drawImage(video, 0, 0); 
+      // Contrast boost to make standard text super clear to the OCR
+      ctx.filter = 'grayscale(100%) contrast(250%) brightness(120%)';
+      ctx.drawImage(video, 0, 0);
+      ctx.filter = 'none';
       
       try {
         const { data: { text } } = await worker.recognize(canvas);
@@ -178,16 +165,17 @@
         if (match) {
           const finalStr = formatFinal(match);
           resultEl.textContent = finalStr;
+          // Format it beautifully with slashes
           rawEl.textContent = `${match[1]}/${match[2]}${match[3]}/${match[4]}/${match[5]}`;
-          statusEl.textContent = '✅ Copied to Clipboard!';
-          statusEl.className = 'success-msg';
+          statusEl.textContent = '✅ Copied to clipboard!';
           navigator.clipboard.writeText(finalStr);
         } else {
-          statusEl.textContent = '❌ No clear code. Move closer.';
-          rawEl.textContent = "Saw: " + text.trim().substring(0, 15);
+          statusEl.textContent = '❌ No code found. Move closer.';
+          // Show what it ACTUALLY saw so you can debug if you hold it too far
+          rawEl.textContent = "Scanner saw: " + text.replace(/\s/g, '').substring(0, 15);
         }
       } catch (err) {
-        statusEl.textContent = 'Scanner busy. Try again.';
+        statusEl.textContent = 'Scanner error. Try again.';
       }
       
       progressWrap.style.display = 'none';
@@ -200,7 +188,7 @@
       startBtn.style.display = 'inline-block';
       captureBtn.style.display = 'none';
       document.getElementById('stop-btn').style.display = 'none';
-      statusEl.textContent = 'Engine ready';
+      statusEl.textContent = 'Camera stopped';
     }
   </script>
 </body>
