@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cambridge Paper Scanner</title>
+  <!-- Tesseract v2: simpler, works reliably from CDN -->
+  <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      gap: 16px;
+    }
+
+    h1 { font-size: 1.3rem; color: #60a5fa; }
+
+    p.subtitle {
+      font-size: 0.8rem;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    #video-container {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid #1e40af;
+      display: none;
+      box-shadow: 0 0 30px rgba(59,130,246,0.2);
+    }
+
+    video { width: 100%; display: block; }
+
+    #aim-box {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%; height: 65px;
+      border: 2px solid #60a5fa;
+      border-radius: 6px;
+      pointer-events: none;
+    }
+
+    #aim-label {
+      position: absolute;
+      bottom: 10px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.7rem;
+      color: #93c5fd;
+      background: rgba(0,0,0,0.55);
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    canvas { display: none; }
+
+    .btn-primary {
+      padding: 14px 40px;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-stop {
+      padding: 10px 28px;
+      background: transparent;
+      color: #f87171;
+      border: 1px solid #f87171;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: none;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      text-align: center;
+      min-height: 20px;
+      color: #64748b;
+    }
+    #status.active  { color: #60a5fa; }
+    #status.success { color: #34d399; }
+    #status.error   { color: #f87171; }
+    #status.loading { color: #facc15; }
+
+    #progress-bar-wrap {
+      width: 100%;
+      max-width: 420px;
+      height: 4px;
+      background: #1e293b;
+      border-radius: 4px;
+      display: none;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3b82f6, #34d399);
+      transition: width 0.3s;
+      border-radius: 4px;
+    }
+
+    #result-box {
+      width: 100%;
+      max-width: 420px;
+      background: #1e293b;
+      border-radius: 14px;
+      padding: 18px;
+      border: 1px solid #334155;
+    }
+
+    .rlabel {
+      font-size: 0.7rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    #result-text {
+      font-size: 1.2rem;
+      color: #34d399;
+      font-weight: 700;
+      min-height: 28px;
+    }
+
+    #raw-text {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-family: monospace;
+      min-height: 18px;
+    }
+
+    #ocr-raw {
+      font-size: 0.75rem;
+      color: #475569;
+      font-family: monospace;
+      word-break: break-all;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .divider { border: none; border-top: 1px solid #334155; margin: 12px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>📄 Cambridge Paper Scanner</h1>
+  <p class="subtitle">
+    Align the paper code inside the box<br>
+    (e.g. <code style="color:#93c5fd">9709/12/F/M/20</code> or <code style="color:#93c5fd">9618/11/MJ/23</code>)<br>
+    then tap <strong>Capture & Scan</strong>.
+  </p>
+
+  <div id="video-container">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="aim-box"></div>
+    <div id="aim-label">Align code within box</div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div id="result-box">
+    <div class="rlabel">Paper Output</div>
+    <div id="result-text">—</div>
+    <hr class="divider">
+    <div class="rlabel">Extracted Code</div>
+    <div id="raw-text">—</div>
+    <hr class="divider">
+    <div class="rlabel">Raw OCR Text</div>
+    <div id="ocr-raw">—</div>
+  </div>
+
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <div id="status">Press Start to open the camera</div>
+
+  <button class="btn-primary" id="start-btn"   onclick="startCamera()">📷 Start Camera</button>
+  <button class="btn-primary" id="capture-btn" onclick="captureAndScan()" style="display:none" disabled>⚡ Capture & Scan</button>
+  <button class="btn-stop"    id="stop-btn"    onclick="stopCamera()">✕ Stop Camera</button>
+
+  <script>
+    const video       = document.getElementById('video');
+    const canvas      = document.getElementById('canvas');
+    const ctx         = canvas.getContext('2d');
+    const resultEl    = document.getElementById('result-text');
+    const rawEl       = document.getElementById('raw-text');
+    const ocrRawEl    = document.getElementById('ocr-raw');
+    const statusEl    = document.getElementById('status');
+    const vcEl        = document.getElementById('video-container');
+    const startBtn    = document.getElementById('start-btn');
+    const captureBtn  = document.getElementById('capture-btn');
+    const stopBtn     = document.getElementById('stop-btn');
+    const progressWrap= document.getElementById('progress-bar-wrap');
+    const progressBar = document.getElementById('progress-bar');
+
+    let stream = null;
+
+    // ── outPaper: subject removed, "Variant" added before number ─────────────
+    function outPaper(scannedString) {
+      // Remove all slashes and spaces → PaperYear
+      const paperYear = scannedString.replace(/\//g, '').replace(/\s/g, '').trim();
+
+      const space = ' ';
+
+      // First digit = paper number, second digit = variant number
+      let newPaper = 'Paper ' + paperYear[4] + ' Variant ' + paperYear[5];
+
+      // Session — check first letter only (guards against OCR misreads like M→l, O→0)
+      const sessionFirst = paperYear[6].toUpperCase();
+      if      (sessionFirst === 'F')                    newPaper += space + 'March';
+      else if (sessionFirst === 'M')                    newPaper += space + 'Summer';
+      else if (sessionFirst === 'O' || sessionFirst === '0') newPaper += space + 'Winter';
+      else                                              newPaper += space + paperYear.substring(6, 8);
+
+      // Year — last 2 digits prefixed with "20"
+      newPaper += space + '20' + paperYear.slice(-2);
+
+      return newPaper;
+    }
+
+    // ── Extract Cambridge code from OCR output ────────────────────────────────
+    function extractCode(raw) {
+      const text = raw.replace(/\s+/g, ' ').trim();
+
+      // Format A: 9709/12/MJ/23
+      let m = text.match(/\d{4}\/\d{1,3}\/[A-Za-z]{2}\/\d{2}/);
+      if (m) return m[0];
+
+      // Format B: 9709/12/F/M/23 or 9709/12/O/N/23 (session split, O may be read as 0)
+      m = text.match(/(\d{4})\/(\d{1,3})\/([A-Za-z0])\/([A-Za-z])\/(\d{2})/);
+      if (m) return `${m[1]}/${m[2]}/${m[3]}${m[4]}/${m[5]}`;
+
+      // Format C: loose separators (spaces or dashes)
+      m = text.match(/(\d{4})[\s\/\-](\d{1,3})[\s\/\-]([A-Za-z]{1,2})[\s\/\-]?([A-Za-z]{0,1})[\s\/\-](\d{2})/);
+      if (m) return `${m[1]}/${m[2]}/${(m[3]+m[4]).toUpperCase()}/${m[5]}`;
+
+      return null;
+    }
+
+    // ── Start camera ──────────────────────────────────────────────────────────
+    async function startCamera() {
+      try {
+        setStatus('Requesting camera permission…', 'active');
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+        });
+        video.srcObject = stream;
+        await video.play();
+
+        vcEl.style.display       = 'block';
+        startBtn.style.display   = 'none';
+        captureBtn.style.display = 'inline-block';
+        stopBtn.style.display    = 'inline-block';
+        captureBtn.disabled      = false;
+        setStatus('Ready — align the code and tap Capture.', 'active');
+      } catch (err) {
+        setStatus('Camera error: ' + err.message, 'error');
+      }
+    }
+
+    // ── Capture & OCR ─────────────────────────────────────────────────────────
+    async function captureAndScan() {
+      captureBtn.disabled        = true;
+      progressWrap.style.display = 'block';
+      progressBar.style.width    = '0%';
+      setStatus('Reading text…', 'loading');
+
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      try {
+        const { data: { text } } = await Tesseract.recognize(
+          canvas,
+          'eng',
+          {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                const pct = Math.round(m.progress * 100);
+                progressBar.style.width = pct + '%';
+                setStatus('Reading… ' + pct + '%', 'loading');
+              }
+            }
+          }
+        );
+
+        const ocrText = text.trim();
+        ocrRawEl.textContent = ocrText || '(nothing detected)';
+
+        const code = extractCode(ocrText);
+
+        if (code) {
+          rawEl.textContent    = code;
+          resultEl.textContent = outPaper(code);
+          setStatus('✅ Code found!', 'success');
+        } else {
+          rawEl.textContent    = '—';
+          resultEl.textContent = '—';
+          setStatus('⚠️ No valid code found — try holding steadier or closer.', 'error');
+        }
+
+      } catch (err) {
+        setStatus('OCR failed: ' + (err.message || JSON.stringify(err)), 'error');
+      }
+
+      progressWrap.style.display = 'none';
+      captureBtn.disabled        = false;
+    }
+
+    // ── Stop camera ───────────────────────────────────────────────────────────
+    function stopCamera() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      vcEl.style.display         = 'none';
+      startBtn.style.display     = 'inline-block';
+      captureBtn.style.display   = 'none';
+      stopBtn.style.display      = 'none';
+      captureBtn.disabled        = true;
+      progressWrap.style.display = 'none';
+      setStatus('Camera stopped.', '');
+    }
+
+    function setStatus(msg, cls) {
+      statusEl.textContent = msg;
+      statusEl.className   = cls;
+    }
+  </script>
+</body>
+</html>
