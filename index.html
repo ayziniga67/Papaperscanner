@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cambridge Paper Scanner</title>
-  <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -19,12 +19,6 @@
       gap: 12px;
     }
     h1 { font-size: 1.3rem; color: #60a5fa; }
-    p.subtitle {
-      font-size: 0.8rem;
-      color: #64748b;
-      text-align: center;
-      line-height: 1.6;
-    }
     #video-container {
       position: relative;
       width: 100%;
@@ -40,60 +34,17 @@
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 85%; height: 65px;
+      width: 85%; height: 60px;
       border: 2px solid #60a5fa;
       border-radius: 6px;
       pointer-events: none;
     }
-    #aim-label {
-      position: absolute;
-      bottom: 10px; left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.7rem;
-      color: #93c5fd;
-      background: rgba(0,0,0,0.55);
-      padding: 3px 10px;
-      border-radius: 20px;
-      white-space: nowrap;
-    }
     canvas { display: none; }
-    #upload-preview-wrap { width: 100%; max-width: 420px; display: none; }
-    #upload-preview { width: 100%; border-radius: 12px; border: 2px solid #1e40af; display: block; }
-    #upload-hint { font-size: 0.72rem; color: #64748b; text-align: center; margin-top: 6px; }
     #status {
       font-size: 0.85rem;
       text-align: center;
+      color: #94a3b8;
       min-height: 20px;
-      color: #64748b;
-      width: 100%;
-      max-width: 420px;
-    }
-    #status.active  { color: #60a5fa; }
-    #status.success { color: #34d399; }
-    #status.error   { color: #f87171; }
-    #status.loading { color: #facc15; }
-    #progress-bar-wrap {
-      width: 100%;
-      max-width: 420px;
-      height: 4px;
-      background: #1e293b;
-      border-radius: 4px;
-      display: none;
-      overflow: hidden;
-    }
-    #progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #3b82f6, #34d399);
-      transition: width 0.3s;
-      border-radius: 4px;
-    }
-    #camera-actions {
-      display: none;
-      gap: 10px;
-      width: 100%;
-      max-width: 420px;
-      justify-content: center;
     }
     #result-box {
       width: 100%;
@@ -103,340 +54,143 @@
       padding: 18px;
       border: 1px solid #334155;
     }
-    .result-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 5px;
-    }
-    .rlabel {
-      font-size: 0.7rem;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .copy-btn {
-      background: transparent;
-      border: 1px solid #334155;
-      color: #64748b;
-      border-radius: 8px;
-      padding: 3px 10px;
-      font-size: 0.72rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .copy-btn:hover  { border-color: #60a5fa; color: #60a5fa; }
-    .copy-btn.copied { border-color: #34d399; color: #34d399; }
-    #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; min-height: 28px; }
-    #raw-text    { font-size: 0.85rem; color: #94a3b8; font-family: monospace; min-height: 18px; }
-    #ocr-raw     { font-size: 0.75rem; color: #475569; font-family: monospace; word-break: break-all; line-height: 1.5; white-space: pre-wrap; }
-    .divider     { border: none; border-top: 1px solid #334155; margin: 12px 0; }
-    #bottom-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 420px; }
+    #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; margin-bottom: 8px; }
+    #raw-text { font-size: 0.85rem; color: #64748b; font-family: monospace; }
     .btn-primary {
       padding: 14px 32px;
       background: linear-gradient(135deg, #3b82f6, #6366f1);
       color: white; border: none; border-radius: 50px; font-size: 1rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(99,102,241,0.35); transition: transform 0.1s, opacity 0.2s;
     }
-    .btn-primary:active   { transform: scale(0.97); }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
     .btn-secondary {
-      padding: 14px 32px;
-      background: linear-gradient(135deg, #0ea5e9, #6366f1);
-      color: white; border: none; border-radius: 50px; font-size: 1rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(14,165,233,0.25); transition: transform 0.1s, opacity 0.2s;
+      padding: 10px 20px;
+      background: #1e293b;
+      color: #94a3b8; border: 1px solid #334155; border-radius: 50px; cursor: pointer;
     }
-    .btn-secondary:active   { transform: scale(0.97); }
-    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    .btn-scan {
-      padding: 12px 28px;
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: white; border: none; border-radius: 50px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(99,102,241,0.35); transition: transform 0.1s, opacity 0.2s; display: none;
-    }
-    .btn-scan:active   { transform: scale(0.97); }
-    .btn-scan:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    .btn-stop {
-      padding: 12px 24px; background: transparent; color: #f87171; border: 1px solid #f87171;
-      border-radius: 50px; font-size: 0.9rem; cursor: pointer; display: none; transition: background 0.2s;
-    }
-    .btn-stop:hover { background: rgba(248,113,113,0.1); }
-    #upload-input { display: none; }
   </style>
 </head>
 <body>
 
   <h1>📄 Cambridge Paper Scanner</h1>
-  <p class="subtitle">Align the printed code in the box<br>(e.g. <code style="color:#93c5fd">9709/12/MJ/23</code>)</p>
+  <div id="status">Ready to scan</div>
 
   <div id="video-container">
     <video id="video" autoplay playsinline muted></video>
     <div id="aim-box"></div>
-    <div id="aim-label">Align code within box</div>
-  </div>
-
-  <div id="upload-preview-wrap">
-    <img id="upload-preview" alt="Uploaded paper">
-    <div id="upload-hint"></div>
-  </div>
-
-  <canvas id="canvas"></canvas>
-
-  <div id="status">Press Start Camera or Upload Image</div>
-  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
-
-  <div id="camera-actions">
-    <button class="btn-scan" id="capture-btn" onclick="captureAndScan()" disabled>⚡ Capture &amp; Scan</button>
-    <button class="btn-stop" id="stop-btn"    onclick="stopCamera()">✕ Stop</button>
   </div>
 
   <div id="result-box">
-    <div class="result-header">
-      <div class="rlabel">Paper Output</div>
-      <button class="copy-btn" id="copy-btn" onclick="copyOutput()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-        </svg>
-        Copy
-      </button>
-    </div>
+    <div style="font-size:0.7rem; color:#64748b; text-transform:uppercase; margin-bottom:4px;">Detected Paper</div>
     <div id="result-text">—</div>
-    <hr class="divider">
-    <div class="rlabel">Extracted Code</div>
     <div id="raw-text">—</div>
-    <hr class="divider">
-    <div class="rlabel">Raw OCR Text</div>
-    <div id="ocr-raw">—</div>
   </div>
 
-  <div id="bottom-actions">
-    <button class="btn-primary"   id="start-btn"  onclick="startCamera()">📷 Start Camera</button>
-    <button class="btn-secondary" id="upload-btn" onclick="triggerUpload()">🖼 Upload Image</button>
+  <div id="actions" style="display: flex; gap: 10px;">
+    <button class="btn-primary" id="start-btn" onclick="initCamera()">📷 Open Camera</button>
+    <button class="btn-primary" id="capture-btn" onclick="captureAndScan()" style="display:none">⚡ Scan Now</button>
+    <button class="btn-secondary" onclick="document.getElementById('file-input').click()">🖼 Upload</button>
   </div>
 
-  <input type="file" id="upload-input" accept="image/*" onchange="handleUpload(event)">
+  <input type="file" id="file-input" style="display:none" accept="image/*" onchange="handleFile(event)">
+  <canvas id="canvas"></canvas>
 
   <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const resultEl = document.getElementById('result-text');
-    const rawEl = document.getElementById('raw-text');
-    const ocrRawEl = document.getElementById('ocr-raw');
-    const statusEl = document.getElementById('status');
-    const vcEl = document.getElementById('video-container');
+    const status = document.getElementById('status');
+    const resultText = document.getElementById('result-text');
+    const rawText = document.getElementById('raw-text');
     const startBtn = document.getElementById('start-btn');
-    const uploadBtn = document.getElementById('upload-btn');
     const captureBtn = document.getElementById('capture-btn');
-    const stopBtn = document.getElementById('stop-btn');
-    const progressWrap = document.getElementById('progress-bar-wrap');
-    const progressBar = document.getElementById('progress-bar');
-    const cameraActions = document.getElementById('camera-actions');
-    const uploadInput = document.getElementById('upload-input');
-    const previewWrap = document.getElementById('upload-preview-wrap');
-    const previewImg = document.getElementById('upload-preview');
-    const uploadHint = document.getElementById('upload-hint');
+    const vc = document.getElementById('video-container');
 
     let stream = null;
 
-    function outPaper(code) {
-      const p = code.replace(/\//g, '').replace(/\s/g, '').trim();
-      let out = 'Paper ' + p[4] + ' Variant ' + p[5];
-      const sf = p[6].toUpperCase();
-      if (sf === 'F') out += ' March';
-      else if (sf === 'M') out += ' Summer';
-      else if (sf === 'O' || sf === '0') out += ' Winter';
-      else out += ' ' + p.substring(6, 8);
-      out += ' 20' + p.slice(-2);
-      return out;
-    }
-
-    function preprocessForOCR(srcCanvas) {
-      const SCALE = 3;
-      const w = srcCanvas.width * SCALE;
-      const h = srcCanvas.height * SCALE;
-      const dst = document.createElement('canvas');
-      dst.width = w;
-      dst.height = h;
-      const dc = dst.getContext('2d');
-      dc.filter = 'grayscale(1) contrast(2) brightness(1.06)';
-      dc.imageSmoothingEnabled = true;
-      dc.imageSmoothingQuality = 'high';
-      dc.drawImage(srcCanvas, 0, 0, w, h);
-      dc.filter = 'none';
-      applySharpen(dc, w, h, 0.45);
-      return dst;
-    }
-
-    function applySharpen(dc, w, h, mix) {
-      const idata = dc.getImageData(0, 0, w, h);
-      const src = new Uint8ClampedArray(idata.data);
-      const d = idata.data;
-      const K = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-      for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-          let v = 0;
-          for (let ky = -1; ky <= 1; ky++)
-            for (let kx = -1; kx <= 1; kx++)
-              v += src[((y + ky) * w + (x + kx)) * 4] * K[(ky + 1) * 3 + (kx + 1)];
-          const i = (y * w + x) * 4;
-          const val = Math.min(255, Math.max(0, src[i] * (1 - mix) + v * mix));
-          d[i] = d[i + 1] = d[i + 2] = val;
-          d[i + 3] = 255;
-        }
-      }
-      dc.putImageData(idata, 0, 0);
-    }
-
-    function extractCode(raw) {
-      const text = raw.replace(/\s+/g, ' ').trim();
-      function normD(s) {
-        return s.replace(/[oO]/g, '0').replace(/[lI]/g, '1').replace(/[sS]/g, '5').replace(/[zZ]/g, '2').replace(/[gG]/g, '9').replace(/[bB]/g, '8');
-      }
-      const SEP = '[\\s\\/\\-\u2013\u2014\u2015\u2212\\_\\|\\.\\u00b7]*';
-      function tryMatch(t) {
-        let m = t.match(new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z]{2})' + SEP + '(\\d{2})(?!\\d)'));
-        if (m) return `${normD(m[1])}/${normD(m[2])}/${m[3].toUpperCase()}/${normD(m[4])}`;
-        m = t.match(new RegExp('(\\d{4})' + SEP + '(\\d{1,3})' + SEP + '([A-Za-z0])' + SEP + '([A-Za-z])' + SEP + '(\\d{2})(?!\\d)'));
-        if (m) return `${normD(m[1])}/${normD(m[2])}/${(m[3] + m[4]).toUpperCase()}/${normD(m[5])}`;
-        m = t.match(/(\d{4})(\d{2})([A-Za-z]{2})(\d{2})(?!\d)/);
-        if (m) return `${m[1]}/${m[2]}/${m[3].toUpperCase()}/${m[4]}`;
-        m = t.match(/(\d{4})(\d{2})([A-Za-z])([A-Za-z])(\d{2})(?!\d)/);
-        if (m) return `${m[1]}/${m[2]}/${(m[3] + m[4]).toUpperCase()}/${m[5]}`;
-        return null;
-      }
-      return tryMatch(text) || tryMatch(normD(text));
-    }
-
-    async function runOCR(srcCanvas) {
-      ocrRawEl.textContent = '—';
+    async function initCamera() {
       try {
-        setStatus('Preprocessing image…', 'loading');
-        const processed = preprocessForOCR(srcCanvas);
-        progressWrap.style.display = 'block';
-        progressBar.style.width = '0%';
-        setStatus('Reading text…', 'loading');
-        const { data: { text } } = await Tesseract.recognize(processed, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              const pct = Math.round(m.progress * 100);
-              progressBar.style.width = pct + '%';
-              setStatus('Reading… ' + pct + '%', 'loading');
-            }
-          }
-        });
-        const ocrText = text.trim();
-        ocrRawEl.textContent = ocrText || '(nothing detected)';
-        const code = extractCode(ocrText);
-        if (code) {
-          rawEl.textContent = code;
-          try { resultEl.textContent = outPaper(code); }
-          catch { resultEl.textContent = code; }
-          setStatus('✅ Code found!', 'success');
-        } else {
-          rawEl.textContent = '—';
-          resultEl.textContent = '—';
-          setStatus('⚠️ No valid code found — try a clearer image.', 'error');
-        }
-      } catch (err) {
-        setStatus('Error: ' + err.message, 'error');
-      }
-      progressWrap.style.display = 'none';
-    }
-
-    async function startCamera() {
-      try {
-        setStatus('Requesting camera…', 'active');
-        previewWrap.style.display = 'none';
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+        status.textContent = "Requesting camera...";
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: "environment", width: { ideal: 1280 } } 
         });
         video.srcObject = stream;
-        await video.play();
-        vcEl.style.display = 'block';
-        startBtn.style.display = 'none';
-        uploadBtn.style.display = 'none';
-        cameraActions.style.display = 'flex';
-        captureBtn.style.display = 'inline-block';
-        stopBtn.style.display = 'inline-block';
-        captureBtn.disabled = false;
-        setStatus('Ready — align the code and tap Capture.', 'active');
+        vc.style.display = "block";
+        startBtn.style.display = "none";
+        captureBtn.style.display = "inline-block";
+        status.textContent = "Align code in box and scan";
       } catch (err) {
-        setStatus('Camera error: ' + err.message, 'error');
+        status.textContent = "Camera Error: " + err.message;
       }
     }
 
     async function captureAndScan() {
-      captureBtn.disabled = true;
+      status.textContent = "Capturing...";
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0);
-      await runOCR(canvas);
-      captureBtn.disabled = false;
+      processAndOCR(canvas);
     }
 
-    function stopCamera() {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      vcEl.style.display = 'none';
-      startBtn.style.display = 'inline-block';
-      uploadBtn.style.display = 'inline-block';
-      cameraActions.style.display = 'none';
-      captureBtn.style.display = 'none';
-      stopBtn.style.display = 'none';
-      captureBtn.disabled = true;
-      progressWrap.style.display = 'none';
-      setStatus('Camera stopped.', '');
-    }
-
-    function triggerUpload() {
-      uploadInput.value = '';
-      uploadInput.click();
-    }
-
-    function handleUpload(event) {
-      const file = event.target.files[0];
+    function handleFile(e) {
+      const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = (event) => {
         const img = new Image();
-        img.onload = function() {
-          previewImg.src = e.target.result;
-          previewWrap.style.display = 'block';
-          const cropW = Math.round(img.width * 0.70);
-          const cropH = Math.round(img.height * 0.22);
-          const cropX = Math.round((img.width - cropW) / 2);
-          const cropY = img.height - cropH;
-          canvas.width = cropW;
-          canvas.height = cropH;
-          ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-          runOCR(canvas);
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          processAndOCR(canvas);
         };
-        img.src = e.target.result;
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     }
 
-    function copyOutput() {
-      const text = resultEl.textContent;
-      if (!text || text === '—') return;
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = '✓ Copied';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy`;
-          btn.classList.remove('copied');
-        }, 2000);
-      });
+    async function processAndOCR(sourceCanvas) {
+      status.textContent = "Enhancing image...";
+      
+      // Basic Enhancement: Grayscale + Contrast
+      const procCanvas = document.createElement('canvas');
+      const pCtx = procCanvas.getContext('2d');
+      procCanvas.width = sourceCanvas.width;
+      procCanvas.height = sourceCanvas.height;
+      pCtx.filter = 'grayscale(1) contrast(1.5) brightness(1.1)';
+      pCtx.drawImage(sourceCanvas, 0, 0);
+
+      status.textContent = "Reading (OCR)...";
+      try {
+        const { data: { text } } = await Tesseract.recognize(procCanvas, 'eng');
+        const code = parseCambridgeCode(text);
+        
+        rawText.textContent = "Found: " + (text.substring(0, 30).replace(/\n/g, ' '));
+        
+        if (code) {
+          resultText.textContent = formatPaperName(code);
+          status.textContent = "Success!";
+        } else {
+          resultText.textContent = "Code not recognized";
+          status.textContent = "Try again (closer or steadier)";
+        }
+      } catch (err) {
+        status.textContent = "OCR Error: " + err.message;
+      }
     }
 
-    function setStatus(msg, cls) {
-      statusEl.textContent = msg;
-      statusEl.className = cls;
+    function parseCambridgeCode(text) {
+      // Regex looks for 4 digits, separator, 2 digits, separator, 2 letters, separator, 2 digits
+      const regex = /(\d{4})[\s\/\|-]*(\d{2})[\s\/\|-]*([A-Z]{2})[\s\/\|-]*(\d{2})/i;
+      const match = text.match(regex);
+      return match ? { sub: match[1], pap: match[2], ses: match[3].toUpperCase(), yr: match[4] } : null;
+    }
+
+    function formatPaperName(c) {
+      let session = c.ses;
+      if (session === 'MJ') session = "May/June";
+      if (session === 'ON') session = "Oct/Nov";
+      if (session === 'FM') session = "Feb/March";
+      
+      return `Subject ${c.sub} | Paper ${c.pap} | ${session} 20${c.yr}`;
     }
   </script>
 </body>
