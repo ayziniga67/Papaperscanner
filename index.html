@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cambridge Paper Scanner</title>
+  <title>Cambridge Paper Scanner Pro</title>
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,37 +16,35 @@
     #video-container {
       position: relative; width: 100%; max-width: 420px; border-radius: 16px;
       overflow: hidden; border: 2px solid #1e40af; display: none;
-      box-shadow: 0 0 30px rgba(59,130,246,0.2);
+      box-shadow: 0 0 30px rgba(59,130,246,0.3);
     }
     video { width: 100%; display: block; }
     #aim-box {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 85%; height: 60px; border: 2px solid #60a5fa; border-radius: 6px; pointer-events: none;
+      width: 80%; height: 60px; border: 3px solid #34d399; border-radius: 8px; pointer-events: none;
+      box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.4); /* Darkens outside the box */
     }
     .camera-controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
     #progress-bar-wrap { width: 100%; height: 6px; background: #1e293b; border-radius: 10px; display: none; overflow: hidden; }
-    #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #34d399); }
+    #progress-bar { height: 100%; width: 0%; background: #34d399; transition: width 0.1s; }
     .action-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
     #result-box { width: 100%; max-width: 420px; background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
     .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .rlabel { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-    #result-text { font-size: 1.15rem; color: #34d399; font-weight: 700; }
-    .btn { padding: 12px 24px; border-radius: 50px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; transition: 0.2s; }
-    .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
-    .btn-primary:active { transform: scale(0.96); }
+    #result-text { font-size: 1.2rem; color: #34d399; font-weight: 700; }
+    .btn { padding: 12px 24px; border-radius: 50px; font-weight: 700; cursor: pointer; border: none; font-size: 0.95rem; transition: 0.2s; }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; width: 100%; }
     .btn-copy { padding: 4px 12px; font-size: 0.75rem; background: #334155; color: #e2e8f0; border-radius: 6px; }
-    .btn-copy.success { background: #059669; color: white; }
-    .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; padding: 8px 16px; }
-    #status { font-size: 0.8rem; color: #94a3b8; text-align: center; }
-    #status.loading { color: #facc15; }
-    #status.success { color: #34d399; }
+    .btn-stop { background: transparent; color: #f87171; border: 1px solid #f87171; width: 60px; }
+    #status { font-size: 0.85rem; color: #94a3b8; text-align: center; font-weight: 500; }
+    .success-msg { color: #34d399 !important; }
     canvas { display: none; }
     .divider { border: none; border-top: 1px solid #334155; margin: 10px 0; }
   </style>
 </head>
 <body>
 
-  <h1>📄 Cambridge Paper Scanner</h1>
+  <h1>📄 Cambridge Paper Scanner Pro</h1>
 
   <div id="video-container">
     <video id="video" autoplay playsinline muted></video>
@@ -56,22 +54,22 @@
   <div class="camera-controls">
     <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
     <div class="action-row">
-      <button class="btn btn-primary" id="start-btn" onclick="startCamera()">📷 Start Camera</button>
+      <button class="btn btn-primary" id="start-btn" onclick="startCamera()">📷 Open Camera</button>
       <button class="btn btn-primary" id="capture-btn" onclick="captureAndScan()" style="display:none" disabled>⚡ Capture & Scan</button>
       <button class="btn btn-stop" id="stop-btn" onclick="stopCamera()" style="display:none">✕</button>
     </div>
-    <div id="status">Tap Start</div>
+    <div id="status">Engine ready</div>
   </div>
 
   <div id="result-box">
     <div class="result-header">
-      <span class="rlabel">Output</span>
-      <button class="btn-copy" id="copy-btn">Auto-Copy On</button>
+      <span class="rlabel">Output (Auto-Copied)</span>
+      <button class="btn-copy" id="copy-btn">Copy</button>
     </div>
     <div id="result-text">—</div>
     <hr class="divider">
-    <div class="rlabel">Cleaned Code</div>
-    <div id="raw-text" style="font-size: 0.8rem; color: #94a3b8; font-family: monospace;">—</div>
+    <div class="rlabel">Detected Code</div>
+    <div id="raw-text" style="font-size: 0.85rem; color: #94a3b8; font-family: monospace; letter-spacing: 1px;">—</div>
   </div>
 
   <canvas id="canvas"></canvas>
@@ -87,13 +85,13 @@
     const progressBar = document.getElementById('progress-bar');
     const captureBtn = document.getElementById('capture-btn');
     const startBtn = document.getElementById('start-btn');
-    const copyBtn = document.getElementById('copy-btn');
-
+    
     let stream = null;
     let worker = null;
 
     async function initWorker() {
       if (worker) return;
+      statusEl.textContent = 'Loading AI Engine...';
       worker = Tesseract.createWorker({
         logger: m => {
           if (m.status === 'recognizing text') {
@@ -104,47 +102,42 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
+      // Whitelist only the characters actually present in Cambridge codes
       await worker.setParameters({
-        tessedit_char_whitelist: '0123456789/MmFfJjOoNn- ',
+        tessedit_char_whitelist: '0123456789/MFJONmfjon-',
+        tessedit_pageseg_mode: '7', // Treat as single line of text
       });
     }
 
-    function formatOutput(match) {
-      const paper = match[2];
-      const variant = match[3];
-      const sessionRaw = match[4].toUpperCase();
+    function formatFinal(match) {
+      const pNum = match[2];
+      const vNum = match[3];
+      const session = match[4].toUpperCase();
       const year = match[5];
 
-      let sessionName = sessionRaw;
-      if (sessionRaw.includes('F') || sessionRaw.includes('M')) sessionName = 'March';
-      else if (sessionRaw.includes('M') || sessionRaw.includes('J')) sessionName = 'Summer';
-      else if (sessionRaw.includes('O') || sessionRaw.includes('N')) sessionName = 'Winter';
+      let sessionStr = session;
+      if (/F|M/.test(session)) sessionStr = 'March';
+      if (/M|J/.test(session)) sessionStr = 'Summer';
+      if (/O|N/.test(session)) sessionStr = 'Winter';
 
-      return `Paper ${paper} Variant ${variant} ${sessionName} 20${year}`;
+      return `Paper ${pNum} Variant ${vNum} ${sessionStr} 20${year}`;
     }
 
     function extractCode(raw) {
-      // Remove all symbols and spaces to create a continuous string
-      const clean = raw.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+      // Clean text: Uppercase and remove everything except Alphanumeric
+      const clean = raw.replace(/[^0-9A-Z]/g, '');
       
-      // Regex Logic:
-      // (\d{4})        -> Ignore first 4 digits
-      // ([1-8])        -> Paper Number (1-8)
-      // ([1-6])        -> Variant Number (1-6)
-      // ([MFJON]{1,3}) -> Session alphabets
-      // (2[0-6])       -> Year (20-26)
-      const regex = /(\d{4})([1-8])([1-6])([MFJON]{1,3})(2[0-6])/;
-      
+      // LOGIC: Subject(4) | Paper(1-8) | Variant(1-6) | Session(Letters) | Year(20-26)
+      const regex = /(\d{4})([1-8])([1-6])([MFJON]{1,4})(2[0-6])/;
       const m = clean.match(regex);
       return m ? m : null;
     }
 
     async function startCamera() {
       try {
-        statusEl.textContent = 'Engaging Engine...';
         await initWorker();
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 } }
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
         });
         video.srcObject = stream;
         document.getElementById('video-container').style.display = 'block';
@@ -152,47 +145,51 @@
         captureBtn.style.display = 'inline-block';
         document.getElementById('stop-btn').style.display = 'inline-block';
         captureBtn.disabled = false;
-        statusEl.textContent = 'Ready';
+        statusEl.textContent = 'Align code inside box';
       } catch (err) {
-        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.textContent = 'Camera error: ' + err.message;
       }
     }
 
     async function captureAndScan() {
       captureBtn.disabled = true;
       progressWrap.style.display = 'block';
-      statusEl.className = 'loading';
-      statusEl.textContent = 'Scanning...';
+      statusEl.textContent = 'Analyzing...';
+      statusEl.className = '';
 
+      // Set canvas size to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      // Pre-process for OCR clarity
-      ctx.filter = 'grayscale(100%) contrast(250%) brightness(120%)';
-      ctx.drawImage(video, 0, 0);
-      ctx.filter = 'none';
 
+      // CROP LOGIC: Focus only on the middle 25% of the frame to avoid background noise
+      const cropW = canvas.width * 0.8;
+      const cropH = canvas.height * 0.2;
+      const cropX = (canvas.width - cropW) / 2;
+      const cropY = (canvas.height - cropH) / 2;
+
+      // Process image for high legibility
+      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
+      ctx.drawImage(video, 0, 0); 
+      
       try {
         const { data: { text } } = await worker.recognize(canvas);
         const match = extractCode(text);
         
         if (match) {
-          const formatted = formatOutput(match);
+          const finalStr = formatFinal(match);
+          resultEl.textContent = finalStr;
           rawEl.textContent = `${match[1]}/${match[2]}${match[3]}/${match[4]}/${match[5]}`;
-          resultEl.textContent = formatted;
-          statusEl.className = 'success';
-          statusEl.textContent = '✅ Copied!';
-          
-          navigator.clipboard.writeText(formatted);
-          copyBtn.classList.add('success');
-          setTimeout(() => copyBtn.classList.remove('success'), 2000);
+          statusEl.textContent = '✅ Copied to Clipboard!';
+          statusEl.className = 'success-msg';
+          navigator.clipboard.writeText(finalStr);
         } else {
-          statusEl.className = '';
-          statusEl.textContent = '❌ No valid code found. Try closer.';
+          statusEl.textContent = '❌ No clear code. Move closer.';
+          rawEl.textContent = "Saw: " + text.trim().substring(0, 15);
         }
       } catch (err) {
-        statusEl.textContent = 'Scanner error. Retry.';
+        statusEl.textContent = 'Scanner busy. Try again.';
       }
+      
       progressWrap.style.display = 'none';
       captureBtn.disabled = false;
     }
@@ -203,7 +200,7 @@
       startBtn.style.display = 'inline-block';
       captureBtn.style.display = 'none';
       document.getElementById('stop-btn').style.display = 'none';
-      statusEl.textContent = 'Camera Stopped';
+      statusEl.textContent = 'Engine ready';
     }
   </script>
 </body>
