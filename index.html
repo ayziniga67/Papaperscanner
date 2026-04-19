@@ -12,7 +12,6 @@
       --card-bg: #004d4d;
       --text-main: #ffffff;
       --accent-teal: #006666;
-      --scan-fill: #004346;
       --progress-bg: #4a5a6a;
     }
 
@@ -26,10 +25,10 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      padding: 40px 20px;
+      padding: 50px 20px;
     }
 
-    .header { text-align: center; margin-bottom: 25px; }
+    .header { text-align: center; margin-bottom: 30px; }
     .header h1 {
       font-family: 'Montserrat', sans-serif;
       font-size: 2.2rem;
@@ -50,12 +49,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 20px;
-      border: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 25px;
     }
 
-    video, #uploaded-img { width: 100%; height: 100%; object-fit: cover; display: none; }
-    #uploaded-img { object-fit: contain; background: #0b1926; }
+    video { width: 100%; height: 100%; object-fit: cover; display: none; }
+    
+    #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; background: #0b1926; }
 
     #aim-box {
       position: absolute;
@@ -67,79 +66,60 @@
       z-index: 5;
     }
 
-    .controls-container {
+    /* Grouped Action Buttons */
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 40px;
       width: 100%;
       max-width: 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 35px;
+      justify-content: space-between;
     }
 
-    .btn-main {
-      background: var(--scan-fill);
-      color: white;
-      border: 1.5px solid #ffffff;
-      padding: 16px 0;
-      border-radius: 12px;
-      font-size: 1.3rem;
-      font-weight: 600;
-      font-family: 'Outfit', sans-serif;
-      cursor: pointer;
-      width: 100%;
-      transition: all 0.2s;
-      text-transform: lowercase;
-    }
-
-    .secondary-row { display: flex; gap: 12px; }
-
-    .btn-secondary {
+    .btn-action {
       background: transparent;
       color: white;
-      border: 1.2px solid rgba(255,255,255,0.7);
+      border: 1.5px solid #ffffff;
       padding: 10px 0;
       border-radius: 10px;
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-family: 'Outfit', sans-serif;
       cursor: pointer;
+      transition: all 0.2s;
       flex: 1;
       text-align: center;
-      transition: all 0.2s;
     }
     
-    .btn-main:active, .btn-secondary:active { transform: scale(0.97); opacity: 0.8; }
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
+    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Output Styling */
     .output-section { width: 100%; max-width: 340px; position: relative; }
-    .output-section h2 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; margin-bottom: 10px; }
+
+    .output-section h2 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
 
     .output-box {
       width: 100%;
       background: linear-gradient(90deg, #004d4d 0%, #1a2a3a 100%);
       padding: 15px;
       border-radius: 8px;
-      min-height: 70px;
-      display: flex;
-      flex-direction: column; 
-      justify-content: center;
-      align-items: flex-start;
-      box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.05);
-    }
-
-    #subject-display {
-      font-size: 0.85rem;
-      opacity: 0.8;
-      margin-bottom: 4px;
-      font-weight: 300;
-    }
-
-    #result-text {
-      font-size: 1.15rem;
-      font-weight: 600;
+      font-size: 1.1rem;
       color: #ffffff;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.1);
     }
 
-    .copy-status-row { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .copy-status-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+
     .toggle-btn {
       background: transparent;
       border: 1px solid #ffffff;
@@ -148,12 +128,20 @@
       border-radius: 12px;
       font-size: 0.7rem;
       cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      transition: opacity 0.3s;
     }
-    .toggle-btn.off { opacity: 0.4; }
 
-    .progress-container { width: 100%; height: 2px; background: var(--progress-bg); margin-top: 10px; }
+    .toggle-btn.off { opacity: 0.4; border-color: rgba(255,255,255,0.5); }
+
+    .progress-container {
+      width: 100%;
+      height: 2px;
+      background: var(--progress-bg);
+      margin-top: 10px;
+    }
     #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.1s; }
-    .progress-label { font-size: 0.7rem; margin-top: 5px; opacity: 0.6; }
+    .progress-label { font-size: 0.7rem; margin-top: 5px; opacity: 0.7; }
 
     canvas { display: none; }
   </style>
@@ -161,34 +149,27 @@
 <body>
 
   <div class="header">
-    <h1>CAMBRIDGE IS GAY</h1>
-    <p>idk man how i created ts it happened (it only works with rove papers)</p>
-    <p>HOW TO USE:Scan the code located on the bottom middle of any paper (which shows subject code month varient etc) it will give you an output that you can copy it in rove papers, it is use when markscheme is not given for individual questions(make sure the code is clear and not blurry currently working on this fix,doesnt work with hand writing may work if your hand writing is clean)   </p>
+    <h1>CAMBRIGE IS GAY</h1>
+    <p>idk man how i created ts it happened</p>
   </div>
 
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
-    <img id="uploaded-img">
+    <img id="uploaded-img" alt="Uploaded paper code preview">
     <div id="aim-box"></div>
     <div id="loading-msg">Camera Off</div>
   </div>
 
-  <div class="controls-container">
-    <button class="btn-main" id="main-btn" onclick="handleFlow()">scan</button>
-    
-    <div class="secondary-row">
-      <label class="btn-secondary" for="file-upload">upload</label>
-      <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
-      <button class="btn-secondary" onclick="handleManualPaste()">paste</button>
-    </div>
+  <div class="action-row">
+    <button class="btn-action" id="main-btn" onclick="handleFlow()">scan</button>
+    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">upload</label>
+    <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+    <button class="btn-action" onclick="handleManualPaste()">paste</button>
   </div>
 
   <div class="output-section">
     <h2>Output</h2>
-    <div class="output-box">
-      <div id="subject-display"></div>
-      <div id="result-text">output here</div>
-    </div>
+    <div class="output-box" id="result-text">output here</div>
     
     <div class="copy-status-row">
       <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">auto copy off</button>
@@ -206,92 +187,73 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const resultEl = document.getElementById('result-text');
-    const subjectEl = document.getElementById('subject-display');
     const mainBtn = document.getElementById('main-btn');
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
     const aimBox = document.getElementById('aim-box');
     
-    let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
+    let stream = null;
+    let worker = null;
+    let isCameraOn = false;
+    let currentMode = 'camera'; 
+    let autoCopy = false;
 
-    const subjectMap = {
-      "9709": "Mathematics (9709)",
-      "9618": "Computer science (9618)",
-      "9702": "Physics (9702)"
-    };
-
-    // Shared logic to process code regardless of source (OCR or Text Paste)
-    function processCodeString(rawText) {
-      // Strips dividers like , . - _ | / automatically
-      const clean = rawText.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
-      const m = clean.match(/(\d{4})([1-8])([1-6])([MFJON]{1,4})(\d{2})/);
-      
-      if (m) {
-        const subCode = m[1], paperNum = m[2], variantNum = m[3], sessionCode = m[4], yearNum = m[5];
-        const subjectName = subjectMap[subCode] || `Subject (${subCode})`;
-        let sN = sessionCode.includes('J') ? "Summer" : (sessionCode.includes('O') || sessionCode.includes('N') ? "Winter" : "March");
-        const fullResult = `Paper ${paperNum} Variant ${variantNum} ${sN} 20${yearNum}`;
-        
-        subjectEl.textContent = subjectName;
-        resultEl.textContent = fullResult;
-        if(autoCopy) navigator.clipboard.writeText(fullResult);
-        return true;
-      }
-      return false;
-    }
-
-    async function handleManualPaste() {
-      try {
-        const clipboardItems = await navigator.clipboard.read();
-        for (const item of clipboardItems) {
-          // Check for image
-          const imageTypes = item.types.filter(t => t.startsWith('image/'));
-          if (imageTypes.length > 0) {
-            const blob = await item.getType(imageTypes[0]);
-            processImageFile(blob);
-            return;
-          }
-        }
-        // If no image, check for text
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          if (!processCodeString(text)) {
-            resultEl.textContent = "No valid code in text";
-          }
-        }
-      } catch (err) {
-        // Fallback for browsers with restricted clipboard access
-        const text = await navigator.clipboard.readText();
-        if(text) processCodeString(text);
-      }
-    }
-
+    // Desktop Paste Listener
     window.addEventListener('paste', e => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-      for (let i in items) {
-        if (items[i].kind === 'file') processImageFile(items[i].getAsFile());
-        if (items[i].kind === 'string') {
-          items[i].getAsString(text => processCodeString(text));
+      for (let index in items) {
+        if (items[index].kind === 'file') {
+          processImageFile(items[index].getAsFile());
         }
       }
     });
 
-    function toggleCopy() {
-      autoCopy = !autoCopy;
-      copyToggle.textContent = autoCopy ? 'auto copy on' : 'auto copy off';
-      copyToggle.classList.toggle('off', !autoCopy);
+    // Mobile/Button Paste Logic
+    async function handleManualPaste() {
+      try {
+        const clipboardItems = await navigator.clipboard.read();
+        for (const item of clipboardItems) {
+          const imageTypes = item.types.filter(type => type.startsWith('image/'));
+          for (const type of imageTypes) {
+            const blob = await item.getType(type);
+            processImageFile(blob);
+            return; 
+          }
+        }
+        alert("No image found in your clipboard!");
+      } catch (err) {
+        alert("Unable to paste. Please make sure you granted clipboard permissions, or try uploading instead.");
+      }
     }
 
-    function handleFileUpload(e) { if (e.target.files[0]) processImageFile(e.target.files[0]); }
+    function toggleCopy() {
+      autoCopy = !autoCopy;
+      if (autoCopy) {
+        copyToggle.textContent = 'auto copy on';
+        copyToggle.classList.remove('off');
+      } else {
+        copyToggle.textContent = 'auto copy off';
+        copyToggle.classList.add('off');
+      }
+    }
+
+    function handleFileUpload(event) {
+      if (event.target.files[0]) processImageFile(event.target.files[0]);
+    }
 
     function processImageFile(blob) {
       const url = URL.createObjectURL(blob);
       uploadedImg.src = url;
       uploadedImg.onload = () => {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        isCameraOn = false; video.style.display = 'none'; aimBox.style.display = 'none';
-        uploadedImg.style.display = 'block'; document.getElementById('loading-msg').style.display = 'none';
-        currentMode = 'image'; mainBtn.textContent = "scan image";
+        if (stream) { stream.getTracks().forEach(t => t.stop()); isCameraOn = false; }
+        
+        video.style.display = 'none';
+        uploadedImg.style.display = 'block';
+        document.getElementById('loading-msg').style.display = 'none';
+        aimBox.style.display = 'none'; 
+        
+        currentMode = 'image';
+        mainBtn.textContent = "scan image";
       }
     }
 
@@ -300,12 +262,21 @@
         mainBtn.textContent = "starting...";
         await initWorker();
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-          video.srcObject = stream; video.style.display = 'block';
-          uploadedImg.style.display = 'none'; document.getElementById('loading-msg').style.display = 'none';
-          aimBox.style.display = 'block'; isCameraOn = true; mainBtn.textContent = "scan";
-        } catch (e) { mainBtn.textContent = "scan"; }
-      } else { await initWorker(); scan(); }
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment', width: { ideal: 1280 } } 
+          });
+          video.srcObject = stream;
+          video.style.display = 'block';
+          uploadedImg.style.display = 'none';
+          document.getElementById('loading-msg').style.display = 'none';
+          aimBox.style.display = 'block';
+          isCameraOn = true;
+          mainBtn.textContent = "scan";
+        } catch (e) { alert("Camera access denied"); mainBtn.textContent = "scan"; }
+      } else {
+        await initWorker(); 
+        scan();
+      }
     }
 
     async function initWorker() {
@@ -313,24 +284,58 @@
       worker = Tesseract.createWorker({
         logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; }
       });
-      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.load();
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng');
       await worker.setParameters({ tessedit_char_whitelist: '0123456789MFJONmfjon/\\-.,;:_[]{}\| ' });
     }
 
     function scan() {
       mainBtn.disabled = true;
-      const target = (currentMode === 'image') ? uploadedImg : video;
-      canvas.width = (currentMode === 'image') ? uploadedImg.naturalWidth : video.videoWidth;
-      canvas.height = (currentMode === 'image') ? uploadedImg.naturalHeight : video.videoHeight;
-      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
-      ctx.drawImage(target, 0, 0);
+      
+      if (currentMode === 'image') {
+        canvas.width = uploadedImg.naturalWidth;
+        canvas.height = uploadedImg.naturalHeight;
+        ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
+        ctx.drawImage(uploadedImg, 0, 0);
+      } else if (isCameraOn) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
+        ctx.drawImage(video, 0, 0);
+      } else {
+        mainBtn.disabled = false;
+        return;
+      }
       
       worker.recognize(canvas).then(({ data: { text } }) => {
-        if (!processCodeString(text)) {
-          subjectEl.textContent = "";
-          resultEl.textContent = "No code found"; 
+        // FIX 1: We replace junk characters with spaces instead of deleting them. 
+        // This stops words on the page from merging into a Frankenstein string.
+        const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, ' ');
+        
+        // FIX 2: We use \s* (optional space) to link the code together.
+        // It also safely filters out "20" if the scanner accidentally reads "25" as "2025".
+        const m = clean.match(/(\d{4})\s*([1-8])\s*([1-6])\s*([MFJON](?:\s*[MFJON]){0,3})\s*(?:20)?(\d{2})/);
+        
+        if (m) {
+          let s = m[4].replace(/\s+/g, '');
+          let sName = s.includes('J') ? "Summer" : (s.includes('O') || s.includes('N') ? "Winter" : "March");
+          
+          const res = `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
+          resultEl.textContent = res;
+          
+          if(autoCopy) {
+            navigator.clipboard.writeText(res).then(() => {
+                const originalText = copyToggle.textContent;
+                copyToggle.textContent = 'COPIED!';
+                setTimeout(() => { copyToggle.textContent = originalText; }, 1000);
+            });
+          }
+        } else {
+          resultEl.textContent = "No code found";
         }
-        mainBtn.disabled = false; bar.style.width = '0%';
+        mainBtn.disabled = false;
+        bar.style.width = '0%';
       });
     }
   </script>
