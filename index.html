@@ -54,7 +54,6 @@
 
     video { width: 100%; height: 100%; object-fit: cover; display: none; }
     
-    /* New element to display uploaded/pasted images */
     #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; background: #0b1926; }
 
     #aim-box {
@@ -70,20 +69,20 @@
     /* Grouped Action Buttons */
     .action-row {
       display: flex;
-      gap: 15px;
+      gap: 10px;
       margin-bottom: 40px;
       width: 100%;
       max-width: 340px;
-      justify-content: center;
+      justify-content: space-between;
     }
 
     .btn-action {
       background: transparent;
       color: white;
       border: 1.5px solid #ffffff;
-      padding: 10px 30px;
+      padding: 10px 0;
       border-radius: 10px;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-family: 'Outfit', sans-serif;
       cursor: pointer;
       transition: all 0.2s;
@@ -158,13 +157,14 @@
     <video id="video" autoplay playsinline muted></video>
     <img id="uploaded-img" alt="Uploaded paper code preview">
     <div id="aim-box"></div>
-    <div id="loading-msg">Camera Off (Paste Image to Scan)</div>
+    <div id="loading-msg">Camera Off</div>
   </div>
 
   <div class="action-row">
     <button class="btn-action" id="main-btn" onclick="handleFlow()">scan</button>
     <label class="btn-action" for="file-upload" style="cursor: pointer;">upload</label>
     <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+    <button class="btn-action" onclick="handleManualPaste()">paste</button>
   </div>
 
   <div class="output-section">
@@ -195,20 +195,36 @@
     let stream = null;
     let worker = null;
     let isCameraOn = false;
-    let currentMode = 'camera'; // 'camera' or 'image'
+    let currentMode = 'camera'; 
     let autoCopy = false;
 
-    // Listen for Paste events anywhere on the page
+    // Desktop Paste Listener
     window.addEventListener('paste', e => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
       for (let index in items) {
-        const item = items[index];
-        if (item.kind === 'file') {
-          const blob = item.getAsFile();
-          processImageFile(blob);
+        if (items[index].kind === 'file') {
+          processImageFile(items[index].getAsFile());
         }
       }
     });
+
+    // Mobile/Button Paste Logic
+    async function handleManualPaste() {
+      try {
+        const clipboardItems = await navigator.clipboard.read();
+        for (const item of clipboardItems) {
+          const imageTypes = item.types.filter(type => type.startsWith('image/'));
+          for (const type of imageTypes) {
+            const blob = await item.getType(type);
+            processImageFile(blob);
+            return; // Exit as soon as we find and process an image
+          }
+        }
+        alert("No image found in your clipboard!");
+      } catch (err) {
+        alert("Unable to paste. Please make sure you granted clipboard permissions, or try uploading instead.");
+      }
+    }
 
     function toggleCopy() {
       autoCopy = !autoCopy;
@@ -222,22 +238,19 @@
     }
 
     function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      processImageFile(file);
+      if (event.target.files[0]) processImageFile(event.target.files[0]);
     }
 
     function processImageFile(blob) {
       const url = URL.createObjectURL(blob);
       uploadedImg.src = url;
       uploadedImg.onload = () => {
-        // Stop camera if running
         if (stream) { stream.getTracks().forEach(t => t.stop()); isCameraOn = false; }
         
         video.style.display = 'none';
         uploadedImg.style.display = 'block';
         document.getElementById('loading-msg').style.display = 'none';
-        aimBox.style.display = 'none'; // Hide aim box for images
+        aimBox.style.display = 'none'; 
         
         currentMode = 'image';
         mainBtn.textContent = "scan image";
@@ -261,7 +274,7 @@
           mainBtn.textContent = "scan";
         } catch (e) { alert("Camera access denied"); mainBtn.textContent = "scan"; }
       } else {
-        await initWorker(); // Ensure worker is loaded if they pasted an image before starting camera
+        await initWorker(); 
         scan();
       }
     }
@@ -280,7 +293,6 @@
     function scan() {
       mainBtn.disabled = true;
       
-      // Determine what to draw to the canvas
       if (currentMode === 'image') {
         canvas.width = uploadedImg.naturalWidth;
         canvas.height = uploadedImg.naturalHeight;
@@ -302,13 +314,9 @@
         
         if (m) {
           let s = m[4];
-          let sName = "";
-          
-          if (s.includes('J')) sName = "Summer";
-          else if (s.includes('O') || s.includes('N')) sName = "Winter";
-          else sName = "March";
-
+          let sName = s.includes('J') ? "Summer" : (s.includes('O') || s.includes('N') ? "Winter" : "March");
           const res = `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
+          
           resultEl.textContent = res;
           
           if(autoCopy) {
