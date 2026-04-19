@@ -53,6 +53,9 @@
     }
 
     video { width: 100%; height: 100%; object-fit: cover; display: none; }
+    
+    /* New element to display uploaded/pasted images */
+    #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; background: #0b1926; }
 
     #aim-box {
       position: absolute;
@@ -64,18 +67,32 @@
       z-index: 5;
     }
 
+    /* Grouped Action Buttons */
+    .action-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 40px;
+      width: 100%;
+      max-width: 340px;
+      justify-content: center;
+    }
+
     .btn-action {
       background: transparent;
       color: white;
       border: 1.5px solid #ffffff;
-      padding: 10px 45px;
+      padding: 10px 30px;
       border-radius: 10px;
       font-size: 1.1rem;
       font-family: 'Outfit', sans-serif;
       cursor: pointer;
-      margin-bottom: 40px;
       transition: all 0.2s;
+      flex: 1;
+      text-align: center;
     }
+    
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
+    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .output-section { width: 100%; max-width: 340px; position: relative; }
 
@@ -116,11 +133,7 @@
       transition: opacity 0.3s;
     }
 
-    /* Styles for when auto-copy is OFF (Default) */
-    .toggle-btn.off {
-      opacity: 0.4;
-      border-color: rgba(255,255,255,0.5);
-    }
+    .toggle-btn.off { opacity: 0.4; border-color: rgba(255,255,255,0.5); }
 
     .progress-container {
       width: 100%;
@@ -143,11 +156,16 @@
 
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
+    <img id="uploaded-img" alt="Uploaded paper code preview">
     <div id="aim-box"></div>
-    <div id="loading-msg">Camera Off</div>
+    <div id="loading-msg">Camera Off (Paste Image to Scan)</div>
   </div>
 
-  <button class="btn-action" id="main-btn" onclick="handleFlow()">scan</button>
+  <div class="action-row">
+    <button class="btn-action" id="main-btn" onclick="handleFlow()">scan</button>
+    <label class="btn-action" for="file-upload" style="cursor: pointer;">upload</label>
+    <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+  </div>
 
   <div class="output-section">
     <h2>Output</h2>
@@ -165,19 +183,32 @@
 
   <script>
     const video = document.getElementById('video');
+    const uploadedImg = document.getElementById('uploaded-img');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const resultEl = document.getElementById('result-text');
     const mainBtn = document.getElementById('main-btn');
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
+    const aimBox = document.getElementById('aim-box');
     
     let stream = null;
     let worker = null;
     let isCameraOn = false;
-    
-    // Defaulting to FALSE
+    let currentMode = 'camera'; // 'camera' or 'image'
     let autoCopy = false;
+
+    // Listen for Paste events anywhere on the page
+    window.addEventListener('paste', e => {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      for (let index in items) {
+        const item = items[index];
+        if (item.kind === 'file') {
+          const blob = item.getAsFile();
+          processImageFile(blob);
+        }
+      }
+    });
 
     function toggleCopy() {
       autoCopy = !autoCopy;
@@ -190,8 +221,31 @@
       }
     }
 
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      processImageFile(file);
+    }
+
+    function processImageFile(blob) {
+      const url = URL.createObjectURL(blob);
+      uploadedImg.src = url;
+      uploadedImg.onload = () => {
+        // Stop camera if running
+        if (stream) { stream.getTracks().forEach(t => t.stop()); isCameraOn = false; }
+        
+        video.style.display = 'none';
+        uploadedImg.style.display = 'block';
+        document.getElementById('loading-msg').style.display = 'none';
+        aimBox.style.display = 'none'; // Hide aim box for images
+        
+        currentMode = 'image';
+        mainBtn.textContent = "scan image";
+      }
+    }
+
     async function handleFlow() {
-      if (!isCameraOn) {
+      if (currentMode === 'camera' && !isCameraOn) {
         mainBtn.textContent = "starting...";
         await initWorker();
         try {
@@ -200,11 +254,14 @@
           });
           video.srcObject = stream;
           video.style.display = 'block';
+          uploadedImg.style.display = 'none';
           document.getElementById('loading-msg').style.display = 'none';
+          aimBox.style.display = 'block';
           isCameraOn = true;
           mainBtn.textContent = "scan";
         } catch (e) { alert("Camera access denied"); mainBtn.textContent = "scan"; }
       } else {
+        await initWorker(); // Ensure worker is loaded if they pasted an image before starting camera
         scan();
       }
     }
@@ -221,14 +278,23 @@
     }
 
     function scan() {
-      if (!isCameraOn) return;
       mainBtn.disabled = true;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
       
-      // Image processing for accuracy
-      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
-      ctx.drawImage(video, 0, 0);
+      // Determine what to draw to the canvas
+      if (currentMode === 'image') {
+        canvas.width = uploadedImg.naturalWidth;
+        canvas.height = uploadedImg.naturalHeight;
+        ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
+        ctx.drawImage(uploadedImg, 0, 0);
+      } else if (isCameraOn) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
+        ctx.drawImage(video, 0, 0);
+      } else {
+        mainBtn.disabled = false;
+        return;
+      }
       
       worker.recognize(canvas).then(({ data: { text } }) => {
         const clean = text.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
