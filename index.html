@@ -37,7 +37,7 @@
       letter-spacing: 2px;
       margin-bottom: 5px;
     }
-    .header p { font-size: 0.9rem; opacity: 0.8; font-weight: 300; margin-bottom: 10px; line-height: 1.4; }
+    .header p { font-size: 0.9rem; opacity: 0.8; font-weight: 300; line-height: 1.4; margin-bottom: 10px; }
 
     #video-wrap {
       width: 100%;
@@ -75,19 +75,6 @@
       gap: 12px;
       margin-bottom: 35px;
     }
-
-    #manual-input {
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 10px;
-      padding: 12px;
-      color: white;
-      font-family: 'Outfit', sans-serif;
-      font-size: 1rem;
-      outline: none;
-      transition: border 0.3s;
-    }
-    #manual-input:focus { border-color: #ffffff; }
 
     .btn-main {
       background: var(--scan-fill);
@@ -165,7 +152,7 @@
   <div class="header">
     <h1>CAMBRIDGE IS GAY</h1>
     <p>idk man how i created ts it happened (it only works with rove papers)</p>
-    <p><strong>HOW TO USE:</strong> Scan or type the code (e.g. 9709/12/M/J/22). It handles slashes, dashes, dots, or even just spaces.</p>
+    <p><strong>HOW TO USE:</strong> Scan or paste the code from the bottom of the paper. This tool ignores dividers like <code>/ , . - _ |</code> and formats the output for Rove Papers.</p>
   </div>
 
   <div id="video-wrap">
@@ -176,8 +163,6 @@
   </div>
 
   <div class="controls-container">
-    <input type="text" id="manual-input" placeholder="Type or paste code here..." oninput="handleManualText(this.value)">
-    
     <button class="btn-main" id="main-btn" onclick="handleFlow()">scan</button>
     
     <div class="secondary-row">
@@ -215,7 +200,6 @@
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
     const aimBox = document.getElementById('aim-box');
-    const manualInput = document.getElementById('manual-input');
     
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
@@ -225,12 +209,13 @@
       "9702": "Physics (9702)"
     };
 
-    // UPDATED LOGIC: Allows any non-alphanumeric character between the groups
-    function parseAndDisplay(rawText) {
-      const upper = rawText.toUpperCase();
-      // This regex looks for: 4 digits, [any symbols], 1 digit, [any symbols], 1 digit, [any symbols], 1-4 letters, [any symbols], 2 digits
-      const regex = /(\d{4})[^0-9A-Z]*([1-8])[^0-9A-Z]*([1-6])[^0-9A-Z]*([MFJON]{1,4})[^0-9A-Z]*(\d{2})/;
-      const m = upper.match(regex);
+    // Central Logic to handle and clean text strings
+    function processRawText(text) {
+      // Step 1: Strip out ALL dividers (anything not a letter or number)
+      const clean = text.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+      
+      // Step 2: Match the pattern [Subject][Paper][Variant][Session][Year]
+      const m = clean.match(/(\d{4})([1-8])([1-6])([MFJON]{1,4})(\d{2})/);
       
       if (m) {
         const subCode = m[1], paperNum = m[2], variantNum = m[3], sessionCode = m[4], yearNum = m[5];
@@ -238,57 +223,52 @@
         let sN = sessionCode.includes('J') ? "Summer" : (sessionCode.includes('O') || sessionCode.includes('N') ? "Winter" : "March");
         
         const fullResult = `Paper ${paperNum} Variant ${variantNum} ${sN} 20${yearNum}`;
+        
         subjectEl.textContent = subjectName;
         resultEl.textContent = fullResult;
         
-        if(autoCopy) {
-            navigator.clipboard.writeText(fullResult);
-            resultEl.style.color = "#34d399";
-            setTimeout(() => { resultEl.style.color = "#ffffff"; }, 500);
-        }
+        if(autoCopy) navigator.clipboard.writeText(fullResult);
         return true;
       }
       return false;
-    }
-
-    function handleManualText(val) {
-      if (!parseAndDisplay(val)) {
-        subjectEl.textContent = "";
-        resultEl.textContent = "scanning text...";
-      }
     }
 
     async function handleManualPaste() {
       try {
         const clipboardItems = await navigator.clipboard.read();
         for (const item of clipboardItems) {
+          // Check for Image first
           const imageTypes = item.types.filter(t => t.startsWith('image/'));
           if (imageTypes.length > 0) {
             const blob = await item.getType(imageTypes[0]);
             processImageFile(blob);
             return;
           }
+          
+          // If no image, check for Text
           if (item.types.includes('text/plain')) {
             const blob = await item.getType('text/plain');
             const text = await blob.text();
-            manualInput.value = text;
-            if (!parseAndDisplay(text)) resultEl.textContent = "Invalid text code";
+            if (!processRawText(text)) {
+              alert("Text pasted, but no valid code found!");
+            }
             return;
           }
         }
       } catch (err) {
+        // Fallback for browsers with stricter clipboard permissions
         const text = await navigator.clipboard.readText();
-        if (text) { manualInput.value = text; parseAndDisplay(text); }
+        if(text) processRawText(text);
       }
     }
 
     window.addEventListener('paste', e => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
       for (let i in items) {
-          if (items[i].kind === 'file') processImageFile(items[i].getAsFile());
-          if (items[i].kind === 'string') {
-              items[i].getAsString(text => { manualInput.value = text; parseAndDisplay(text); });
-          }
+        if (items[i].kind === 'file') processImageFile(items[i].getAsFile());
+        if (items[i].kind === 'string') {
+          items[i].getAsString(text => processRawText(text));
+        }
       }
     });
 
@@ -342,7 +322,7 @@
       ctx.drawImage(target, 0, 0);
       
       worker.recognize(canvas).then(({ data: { text } }) => {
-        if (!parseAndDisplay(text)) {
+        if (!processRawText(text)) {
           subjectEl.textContent = "";
           resultEl.textContent = "No code found"; 
         }
