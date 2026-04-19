@@ -197,29 +197,88 @@
     let currentMode = 'camera'; 
     let autoCopy = false;
 
+    // --- CORE LOGIC: Converts text into Cambridge format ---
+    function parseCode(text) {
+      const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, ' ');
+      const m = clean.match(/(\d{4})\s*([1-8])\s*([1-6])\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
+      
+      if (m) {
+        let s = m[4].replace(/\s+/g, '');
+        let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
+        
+        const res = `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
+        resultEl.textContent = res;
+        
+        if(autoCopy) {
+          navigator.clipboard.writeText(res).then(() => {
+              const originalText = copyToggle.textContent;
+              copyToggle.textContent = 'COPIED!';
+              setTimeout(() => { copyToggle.textContent = originalText; }, 1000);
+          });
+        }
+      } else {
+        resultEl.textContent = "No valid code found";
+      }
+    }
+
+    // --- DESKTOP PASTE (Ctrl+V) ---
     window.addEventListener('paste', e => {
-      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      const clipboardData = e.clipboardData || window.clipboardData;
+      
+      // 1. Check if they pasted text first
+      const pastedText = clipboardData.getData('Text');
+      if (pastedText && pastedText.trim() !== '') {
+        parseCode(pastedText);
+        return; // Stop here, we got the text!
+      }
+
+      // 2. If it wasn't text, check for an image file
+      const items = clipboardData.items;
       for (let index in items) {
         if (items[index].kind === 'file') {
           processImageFile(items[index].getAsFile());
+          return;
         }
       }
     });
 
+    // --- MOBILE / BUTTON PASTE ---
     async function handleManualPaste() {
       try {
         const clipboardItems = await navigator.clipboard.read();
+        
         for (const item of clipboardItems) {
+          // 1. Look for text in clipboard
+          if (item.types.includes('text/plain')) {
+            const blob = await item.getType('text/plain');
+            const text = await blob.text();
+            if (text.trim()) {
+              parseCode(text);
+              return; // Stop here!
+            }
+          }
+          
+          // 2. Look for image in clipboard
           const imageTypes = item.types.filter(type => type.startsWith('image/'));
           for (const type of imageTypes) {
             const blob = await item.getType(type);
             processImageFile(blob);
-            return; 
+            return; // Stop here!
           }
         }
-        alert("No image found in your clipboard!");
+        alert("No text or image found in your clipboard!");
+        
       } catch (err) {
-        alert("Unable to paste. Please make sure you granted clipboard permissions, or try uploading instead.");
+        // Fallback if browser blocks complex clipboard reads but allows basic text read
+        try {
+           const fallbackText = await navigator.clipboard.readText();
+           if(fallbackText.trim()) {
+               parseCode(fallbackText);
+               return;
+           }
+        } catch(e) {
+           alert("Unable to paste. Please make sure you granted clipboard permissions.");
+        }
       }
     }
 
@@ -284,7 +343,6 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-      // Ensure '0' is allowed so we don't break when O/N is misread
       await worker.setParameters({ tessedit_char_whitelist: '0123456789MFJONmfjon/\\-.,;:_[]{}\| ' });
     }
 
@@ -306,31 +364,9 @@
         return;
       }
       
+      // Pass the OCR text directly into the brain function!
       worker.recognize(canvas).then(({ data: { text } }) => {
-        const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, ' ');
-        
-        // FIX: Added '0' to the character group [MFJON0] to allow "0/N" misreads
-        const m = clean.match(/(\d{4})\s*([1-8])\s*([1-6])\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
-        
-        if (m) {
-          let s = m[4].replace(/\s+/g, '');
-          
-          // FIX: If it sees an 'O', an 'N', OR a '0', it knows it's a Winter paper
-          let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
-          
-          const res = `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
-          resultEl.textContent = res;
-          
-          if(autoCopy) {
-            navigator.clipboard.writeText(res).then(() => {
-                const originalText = copyToggle.textContent;
-                copyToggle.textContent = 'COPIED!';
-                setTimeout(() => { copyToggle.textContent = originalText; }, 1000);
-            });
-          }
-        } else {
-          resultEl.textContent = "No code found";
-        }
+        parseCode(text);
         mainBtn.disabled = false;
         bar.style.width = '0%';
       });
