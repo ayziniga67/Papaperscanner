@@ -66,7 +66,6 @@
       z-index: 5;
     }
 
-    /* Grouped Action Buttons */
     .action-row {
       display: flex;
       gap: 10px;
@@ -198,7 +197,6 @@
     let currentMode = 'camera'; 
     let autoCopy = false;
 
-    // Desktop Paste Listener
     window.addEventListener('paste', e => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
       for (let index in items) {
@@ -208,7 +206,6 @@
       }
     });
 
-    // Mobile/Button Paste Logic
     async function handleManualPaste() {
       try {
         const clipboardItems = await navigator.clipboard.read();
@@ -287,6 +284,7 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
+      // Ensure '0' is allowed so we don't break when O/N is misread
       await worker.setParameters({ tessedit_char_whitelist: '0123456789MFJONmfjon/\\-.,;:_[]{}\| ' });
     }
 
@@ -309,17 +307,16 @@
       }
       
       worker.recognize(canvas).then(({ data: { text } }) => {
-        // FIX 1: We replace junk characters with spaces instead of deleting them. 
-        // This stops words on the page from merging into a Frankenstein string.
         const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, ' ');
         
-        // FIX 2: We use \s* (optional space) to link the code together.
-        // It also safely filters out "20" if the scanner accidentally reads "25" as "2025".
-        const m = clean.match(/(\d{4})\s*([1-8])\s*([1-6])\s*([MFJON](?:\s*[MFJON]){0,3})\s*(?:20)?(\d{2})/);
+        // FIX: Added '0' to the character group [MFJON0] to allow "0/N" misreads
+        const m = clean.match(/(\d{4})\s*([1-8])\s*([1-6])\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
         
         if (m) {
           let s = m[4].replace(/\s+/g, '');
-          let sName = s.includes('J') ? "Summer" : (s.includes('O') || s.includes('N') ? "Winter" : "March");
+          
+          // FIX: If it sees an 'O', an 'N', OR a '0', it knows it's a Winter paper
+          let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
           
           const res = `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
           resultEl.textContent = res;
