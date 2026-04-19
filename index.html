@@ -29,7 +29,7 @@
       padding: 40px 20px;
     }
 
-    .header { text-align: center; margin-bottom: 25px; max-width: 600px; }
+    .header { text-align: center; margin-bottom: 25px; }
     .header h1 {
       font-family: 'Montserrat', sans-serif;
       font-size: 2.2rem;
@@ -37,7 +37,7 @@
       letter-spacing: 2px;
       margin-bottom: 5px;
     }
-    .header p { font-size: 0.9rem; opacity: 0.8; font-weight: 300; line-height: 1.4; margin-bottom: 10px; }
+    .header p { font-size: 0.9rem; opacity: 0.8; font-weight: 300; }
 
     #video-wrap {
       width: 100%;
@@ -109,6 +109,7 @@
     
     .btn-main:active, .btn-secondary:active { transform: scale(0.97); opacity: 0.8; }
 
+    /* Output Styling */
     .output-section { width: 100%; max-width: 340px; position: relative; }
     .output-section h2 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; margin-bottom: 10px; }
 
@@ -119,14 +120,24 @@
       border-radius: 8px;
       min-height: 70px;
       display: flex;
-      flex-direction: column;
+      flex-direction: column; 
       justify-content: center;
       align-items: flex-start;
       box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.05);
     }
 
-    #subject-display { font-size: 0.85rem; opacity: 0.8; margin-bottom: 4px; font-weight: 300; }
-    #result-text { font-size: 1.15rem; font-weight: 600; color: #ffffff; }
+    #subject-display {
+      font-size: 0.85rem;
+      opacity: 0.8;
+      margin-bottom: 4px;
+      font-weight: 300;
+    }
+
+    #result-text {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
 
     .copy-status-row { display: flex; justify-content: flex-end; margin-top: 10px; }
     .toggle-btn {
@@ -152,7 +163,7 @@
   <div class="header">
     <h1>CAMBRIDGE IS GAY</h1>
     <p>idk man how i created ts it happened (it only works with rove papers)</p>
-    <p><strong>HOW TO USE:</strong> Scan or paste the code from the bottom of the paper. This tool ignores dividers like <code>/ , . - _ |</code> and formats the output for Rove Papers.</p>
+    <p>HOW TO USE:Scan the code located on the bottom middle of any paper (which shows subject code month varient etc) it will give you an output that you can copy it in rove papers, it is use when markscheme is not given for individual questions(make sure the code is clear and not blurry currently working on this fix,doesnt work with hand writing may work if your hand writing is clean)   </p>
   </div>
 
   <div id="video-wrap">
@@ -209,24 +220,20 @@
       "9702": "Physics (9702)"
     };
 
-    // Central Logic to handle and clean text strings
-    function processRawText(text) {
-      // Step 1: Strip out ALL dividers (anything not a letter or number)
-      const clean = text.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
-      
-      // Step 2: Match the pattern [Subject][Paper][Variant][Session][Year]
+    // Shared logic to process code regardless of source (OCR or Text Paste)
+    function processCodeString(rawText) {
+      // Strips dividers like , . - _ | / automatically
+      const clean = rawText.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
       const m = clean.match(/(\d{4})([1-8])([1-6])([MFJON]{1,4})(\d{2})/);
       
       if (m) {
         const subCode = m[1], paperNum = m[2], variantNum = m[3], sessionCode = m[4], yearNum = m[5];
         const subjectName = subjectMap[subCode] || `Subject (${subCode})`;
         let sN = sessionCode.includes('J') ? "Summer" : (sessionCode.includes('O') || sessionCode.includes('N') ? "Winter" : "March");
-        
         const fullResult = `Paper ${paperNum} Variant ${variantNum} ${sN} 20${yearNum}`;
         
         subjectEl.textContent = subjectName;
         resultEl.textContent = fullResult;
-        
         if(autoCopy) navigator.clipboard.writeText(fullResult);
         return true;
       }
@@ -237,28 +244,25 @@
       try {
         const clipboardItems = await navigator.clipboard.read();
         for (const item of clipboardItems) {
-          // Check for Image first
+          // Check for image
           const imageTypes = item.types.filter(t => t.startsWith('image/'));
           if (imageTypes.length > 0) {
             const blob = await item.getType(imageTypes[0]);
             processImageFile(blob);
             return;
           }
-          
-          // If no image, check for Text
-          if (item.types.includes('text/plain')) {
-            const blob = await item.getType('text/plain');
-            const text = await blob.text();
-            if (!processRawText(text)) {
-              alert("Text pasted, but no valid code found!");
-            }
-            return;
+        }
+        // If no image, check for text
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          if (!processCodeString(text)) {
+            resultEl.textContent = "No valid code in text";
           }
         }
       } catch (err) {
-        // Fallback for browsers with stricter clipboard permissions
+        // Fallback for browsers with restricted clipboard access
         const text = await navigator.clipboard.readText();
-        if(text) processRawText(text);
+        if(text) processCodeString(text);
       }
     }
 
@@ -267,7 +271,7 @@
       for (let i in items) {
         if (items[i].kind === 'file') processImageFile(items[i].getAsFile());
         if (items[i].kind === 'string') {
-          items[i].getAsString(text => processRawText(text));
+          items[i].getAsString(text => processCodeString(text));
         }
       }
     });
@@ -322,7 +326,7 @@
       ctx.drawImage(target, 0, 0);
       
       worker.recognize(canvas).then(({ data: { text } }) => {
-        if (!processRawText(text)) {
+        if (!processCodeString(text)) {
           subjectEl.textContent = "";
           resultEl.textContent = "No code found"; 
         }
