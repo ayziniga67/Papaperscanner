@@ -194,48 +194,52 @@
     
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
-    // Logic Fix: Unified session detection to prevent M/J misidentification
-    function getSessionInfo(char) {
-      const c = char.toUpperCase();
-      if (c === 'J' || c === 'S') return { code: 's', name: 'Summer' };
-      if (c === 'M' || c === 'F') return { code: 'm', name: 'March' };
-      if (c === 'O' || c === 'N' || c === 'W') return { code: 'w', name: 'Winter' };
-      return { code: 's', name: 'Summer' };
-    }
-
     function parseCode(text) {
+      // Clean text for regex processing - preserving characters needed for session detection
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
+      
       let resText = "", urlPart = "";
       let sub = "9709", pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
+      // Pattern 1: Filename (9709_S25_QP_12)
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
-      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
+      // Pattern 2: Modern Slash (9709 1 2 M J 25)
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJONW])\s*([MFJONW])?\s*(?:20)?(\d{2})/);
+      // Pattern 3: Legacy (9709 01 O N 05)
+      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJONW])\s*([MFJONW])?\s*(?:20)?(\d{2})/);
 
       if (mUnder) {
         sub = mUnder[1] || "9709"; 
-        const sInfo = getSessionInfo(mUnder[2]);
-        seas = sInfo.code; yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
-        let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
-        resText = `${typeName} Paper ${pap} Variant ${varnt} ${sInfo.name} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
+        seas = mUnder[2].toLowerCase(); // S, M, or W
+        yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
       } 
-      else if (mSlash) {
-        sub = mSlash[1] || "9709"; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
-        const sInfo = getSessionInfo(mSlash[4]);
-        seas = sInfo.code;
-        resText = `Mark Scheme Paper ${pap} Variant ${varnt} ${sInfo.name} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
-      }
-      else if (mLegacy) {
-        sub = mLegacy[1] || "9709"; pap = mLegacy[2]; yr = mLegacy[5];
-        const sInfo = getSessionInfo(mLegacy[3]);
-        seas = sInfo.code;
-        resText = `Mark Scheme Paper ${pap} ${sInfo.name} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`;
+      else if (mSlash || mLegacy) {
+        const match = mSlash || mLegacy;
+        sub = match[1] || "9709";
+        pap = match[2];
+        // Handle the Slash session logic differently to avoid MJ/FM confusion
+        const fullBlock = clean; 
+        if (fullBlock.includes("M J") || fullBlock.includes("MJ") || fullBlock.includes(" S ")) {
+            seas = "s";
+        } else if (fullBlock.includes("O N") || fullBlock.includes("ON") || fullBlock.includes(" W ")) {
+            seas = "w";
+        } else if (fullBlock.includes("F M") || fullBlock.includes("FM") || fullBlock.includes(" M ")) {
+            seas = "m";
+        } else {
+            // Fallback to single character if block not found
+            let s = match[4];
+            seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
+        }
+        varnt = match[3] || "1";
+        yr = match[6] || match[5];
       }
 
-      if (resText) {
+      if (seas && pap) {
+        let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        resText = `${typeName} Paper ${pap}${varnt !== "1" ? " Variant " + varnt : ""} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
+        
         subjectEl.textContent = `Subject: ${sub}`;
         resultEl.textContent = resText;
         pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${urlPart}.pdf`;
@@ -251,10 +255,7 @@
     async function handleManualPaste() {
       try {
         const text = await navigator.clipboard.readText();
-        if(text) {
-          await initWorker();
-          parseCode(text);
-        }
+        if(text) parseCode(text);
       } catch(e) { alert("Enable clipboard permissions"); }
     }
 
@@ -268,8 +269,7 @@
       if (event.target.files[0]) {
         const url = URL.createObjectURL(event.target.files[0]);
         uploadedImg.src = url;
-        uploadedImg.onload = async () => {
-          await initWorker();
+        uploadedImg.onload = () => {
           if (stream) stream.getTracks().forEach(t => t.stop());
           isCameraOn = false; video.style.display = 'none'; uploadedImg.style.display = 'block';
           currentMode = 'image'; mainBtn.textContent = "Scan Image";
@@ -278,10 +278,10 @@
     }
 
     async function handleFlow() {
-      await initWorker(); // Ensure worker is ready before doing anything
       if (currentMode === 'camera' && !isCameraOn) {
+        await initWorker();
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 } } });
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
           video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
           isCameraOn = true; mainBtn.textContent = "Scan Now";
         } catch(e) { alert("Camera Error"); }
@@ -290,26 +290,20 @@
 
     async function initWorker() {
       if (worker) return;
-      resultEl.textContent = "Loading Engine...";
       worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
       await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
-      resultEl.textContent = "Ready...";
     }
 
     function scan() {
-      if (!worker) return;
       mainBtn.disabled = true;
-      const src = currentMode === 'image' ? uploadedImg : video;
-      
-      // Logic Fix: Ensure canvas matches the actual image/video source exactly
-      canvas.width = (currentMode === 'image') ? src.naturalWidth : src.videoWidth;
-      canvas.height = (currentMode === 'image') ? src.naturalHeight : src.videoHeight;
-      
+      if (currentMode === 'image') {
+        canvas.width = uploadedImg.naturalWidth; canvas.height = uploadedImg.naturalHeight;
+      } else {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      }
       ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
-      // Logic Fix: Specifically defining the source and destination dimensions to prevent blank scans
-      ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
-      
+      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
         mainBtn.disabled = false;
