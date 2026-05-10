@@ -197,18 +197,39 @@
     let currentMode = 'camera'; 
     let autoCopy = false;
 
-    // --- CORE LOGIC: Converts text into Cambridge format ---
     function parseCode(text) {
-      const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, ' ');
-      const m = clean.match(/(\d{4})\s*([1-8])\s*([1-6])\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
+      const clean = text.toUpperCase().trim();
       
-      if (m) {
-        let s = m[4].replace(/\s+/g, '');
+      // Pattern 1: Modern format (9709/52/F/M/20)
+      const mNew = clean.match(/(\d{4})\s*(\d)\s*(\d)\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
+      
+      // Pattern 2: Legacy format (9709/01/O/N/04)
+      const mOld = clean.match(/(\d{4})\s*0(\d)\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
+      
+      // Pattern 3: Filename format (m25_qp_12) - SeasonYear_Type_PaperVariant
+      // Group 1: M/S/W | Group 2: Year | Group 3: qp/ms | Group 4: Paper | Group 5: Variant
+      const mFile = clean.match(/([MSW])(\d{2})_(?:QP|MS)_(\d)(\d)/);
+
+      let res = "";
+
+      if (mNew) {
+        let s = mNew[4].replace(/\s+/g, '');
         let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
-        
-        const res = `Paper ${m[2]} Variant ${m[3]} ${sName} 20${m[5]}`;
+        res = `Paper ${mNew[2]} Variant ${mNew[3]} ${sName} 20${mNew[5]}`;
+      } 
+      else if (mOld) {
+        let s = mOld[3].replace(/\s+/g, '');
+        let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
+        res = `Paper ${mOld[2]} ${sName} 20${mOld[4]}`;
+      }
+      else if (mFile) {
+        let sLetter = mFile[1];
+        let sName = sLetter === 'M' ? "March" : (sLetter === 'S' ? "Summer" : "Winter");
+        res = `Paper ${mFile[3]} Variant ${mFile[4]} ${sName} 20${mFile[2]}`;
+      }
+      
+      if (res) {
         resultEl.textContent = res;
-        
         if(autoCopy) {
           navigator.clipboard.writeText(res).then(() => {
               const originalText = copyToggle.textContent;
@@ -221,18 +242,13 @@
       }
     }
 
-    // --- DESKTOP PASTE (Ctrl+V) ---
     window.addEventListener('paste', e => {
       const clipboardData = e.clipboardData || window.clipboardData;
-      
-      // 1. Check if they pasted text first
       const pastedText = clipboardData.getData('Text');
       if (pastedText && pastedText.trim() !== '') {
         parseCode(pastedText);
-        return; // Stop here, we got the text!
+        return; 
       }
-
-      // 2. If it wasn't text, check for an image file
       const items = clipboardData.items;
       for (let index in items) {
         if (items[index].kind === 'file') {
@@ -242,55 +258,37 @@
       }
     });
 
-    // --- MOBILE / BUTTON PASTE ---
     async function handleManualPaste() {
       try {
         const clipboardItems = await navigator.clipboard.read();
-        
         for (const item of clipboardItems) {
-          // 1. Look for text in clipboard
           if (item.types.includes('text/plain')) {
             const blob = await item.getType('text/plain');
             const text = await blob.text();
             if (text.trim()) {
               parseCode(text);
-              return; // Stop here!
+              return; 
             }
           }
-          
-          // 2. Look for image in clipboard
           const imageTypes = item.types.filter(type => type.startsWith('image/'));
           for (const type of imageTypes) {
             const blob = await item.getType(type);
             processImageFile(blob);
-            return; // Stop here!
+            return; 
           }
         }
-        alert("No text or image found in your clipboard!");
-        
       } catch (err) {
-        // Fallback if browser blocks complex clipboard reads but allows basic text read
         try {
            const fallbackText = await navigator.clipboard.readText();
-           if(fallbackText.trim()) {
-               parseCode(fallbackText);
-               return;
-           }
-        } catch(e) {
-           alert("Unable to paste. Please make sure you granted clipboard permissions.");
-        }
+           if(fallbackText.trim()) parseCode(fallbackText);
+        } catch(e) { alert("Paste failed - check permissions"); }
       }
     }
 
     function toggleCopy() {
       autoCopy = !autoCopy;
-      if (autoCopy) {
-        copyToggle.textContent = 'auto copy on';
-        copyToggle.classList.remove('off');
-      } else {
-        copyToggle.textContent = 'auto copy off';
-        copyToggle.classList.add('off');
-      }
+      copyToggle.textContent = autoCopy ? 'auto copy on' : 'auto copy off';
+      copyToggle.classList.toggle('off', !autoCopy);
     }
 
     function handleFileUpload(event) {
@@ -302,12 +300,10 @@
       uploadedImg.src = url;
       uploadedImg.onload = () => {
         if (stream) { stream.getTracks().forEach(t => t.stop()); isCameraOn = false; }
-        
         video.style.display = 'none';
         uploadedImg.style.display = 'block';
         document.getElementById('loading-msg').style.display = 'none';
         aimBox.style.display = 'none'; 
-        
         currentMode = 'image';
         mainBtn.textContent = "scan image";
       }
@@ -328,7 +324,7 @@
           aimBox.style.display = 'block';
           isCameraOn = true;
           mainBtn.textContent = "scan";
-        } catch (e) { alert("Camera access denied"); mainBtn.textContent = "scan"; }
+        } catch (e) { alert("Camera error"); mainBtn.textContent = "scan"; }
       } else {
         await initWorker(); 
         scan();
@@ -343,28 +339,21 @@
       await worker.load();
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MFJONmfjon/\\-.,;:_[]{}\| ' });
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MFJONmsqp_ /\\-.,;:_[]{}\|' });
     }
 
     function scan() {
       mainBtn.disabled = true;
-      
       if (currentMode === 'image') {
         canvas.width = uploadedImg.naturalWidth;
         canvas.height = uploadedImg.naturalHeight;
-        ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
-        ctx.drawImage(uploadedImg, 0, 0);
-      } else if (isCameraOn) {
+      } else {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
-        ctx.drawImage(video, 0, 0);
-      } else {
-        mainBtn.disabled = false;
-        return;
       }
+      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
+      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
       
-      // Pass the OCR text directly into the brain function!
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
         mainBtn.disabled = false;
