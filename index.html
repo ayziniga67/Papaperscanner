@@ -195,7 +195,7 @@
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
     function parseCode(text) {
-      // Clean text for regex processing - preserving characters needed for session detection
+      // Clean text for regex processing
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
       let resText = "", urlPart = "";
@@ -210,14 +210,14 @@
 
       if (mUnder) {
         sub = mUnder[1] || "9709"; 
-        seas = mUnder[2].toLowerCase(); // S, M, or W
+        seas = mUnder[2].toLowerCase(); 
         yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
       } 
       else if (mSlash || mLegacy) {
         const match = mSlash || mLegacy;
         sub = match[1] || "9709";
         pap = match[2];
-        // Handle the Slash session logic differently to avoid MJ/FM confusion
+        
         const fullBlock = clean; 
         if (fullBlock.includes("M J") || fullBlock.includes("MJ") || fullBlock.includes(" S ")) {
             seas = "s";
@@ -226,7 +226,6 @@
         } else if (fullBlock.includes("F M") || fullBlock.includes("FM") || fullBlock.includes(" M ")) {
             seas = "m";
         } else {
-            // Fallback to single character if block not found
             let s = match[4];
             seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
         }
@@ -292,18 +291,26 @@
       if (worker) return;
       worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
+      
+      // FIX: Added F, J, O, N to the whitelist so the engine can actually "see" the sessions
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
     }
 
     function scan() {
       mainBtn.disabled = true;
-      if (currentMode === 'image') {
-        canvas.width = uploadedImg.naturalWidth; canvas.height = uploadedImg.naturalHeight;
-      } else {
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      }
+      const source = currentMode === 'image' ? uploadedImg : video;
+      
+      // SPEED FIX: Downscale the image before running OCR
+      const w = source.naturalWidth || source.videoWidth;
+      const h = source.naturalHeight || source.videoHeight;
+      const scale = Math.min(1, 800 / w); // Caps width at 800px max
+      
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      
       ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
-      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
         mainBtn.disabled = false;
