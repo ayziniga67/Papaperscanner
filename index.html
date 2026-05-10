@@ -50,6 +50,17 @@
     video, #uploaded-img { width: 100%; height: 100%; object-fit: cover; display: none; }
     #uploaded-img { object-fit: contain; background: #0b1926; }
 
+    #aim-box {
+      position: absolute;
+      width: 85%;
+      height: 50px;
+      border: 2px solid #ffffff;
+      border-radius: 10px;
+      pointer-events: none;
+      z-index: 5;
+      display: none;
+    }
+
     .internal-cam-btn {
       position: absolute;
       bottom: 15px;
@@ -135,6 +146,7 @@
       text-decoration: none;
       font-weight: 700;
       margin-top: 5px;
+      font-size: 0.9rem;
     }
 
     .toggle-btn {
@@ -165,11 +177,12 @@
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
     <img id="uploaded-img">
+    <div id="aim-box"></div>
     <button id="cam-toggle-btn" class="internal-cam-btn" onclick="toggleCamera()">Open Camera</button>
   </div>
 
   <div class="manual-subject-wrap">
-    <input type="text" id="manual-sub-input" placeholder="Subject Code (e.g. 0580)" onkeypress="if(event.key==='Enter') handleFlow()">
+    <input type="text" id="manual-sub-input" placeholder="Subject Code (Enter to Apply)" onkeypress="if(event.key==='Enter') handleFlow()">
   </div>
 
   <div class="action-row">
@@ -207,6 +220,7 @@
     const pdfLink = document.getElementById('pdf-link');
     const mainBtn = document.getElementById('main-btn');
     const camToggleBtn = document.getElementById('cam-toggle-btn');
+    const aimBox = document.getElementById('aim-box');
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
     const manualSubInput = document.getElementById('manual-sub-input');
@@ -215,6 +229,7 @@
 
     async function initWorker() {
       if (worker) return;
+      resultEl.textContent = "Loading Engine...";
       worker = Tesseract.createWorker({ 
         logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } 
       });
@@ -225,68 +240,66 @@
     async function toggleCamera() {
       if (isCameraOn) {
         if (stream) stream.getTracks().forEach(t => t.stop());
-        video.style.display = 'none'; camToggleBtn.textContent = "Open Camera"; isCameraOn = false;
+        video.style.display = 'none'; aimBox.style.display = 'none';
+        camToggleBtn.textContent = "Open Camera"; isCameraOn = false;
       } else {
         await initWorker();
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
           video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
-          camToggleBtn.textContent = "Close Camera"; isCameraOn = true; currentMode = 'camera';
+          aimBox.style.display = 'block'; camToggleBtn.textContent = "Close Camera";
+          isCameraOn = true; currentMode = 'camera';
         } catch (e) { alert("Camera failed"); }
       }
     }
 
-    function getSession(text) {
-      if (text.includes('F') || text.includes('M')) return { code: 'm', name: 'March' };
-      if (text.includes('J') || text.includes('S')) return { code: 's', name: 'Summer' };
-      if (text.includes('O') || text.includes('N') || text.includes('W')) return { code: 'w', name: 'Winter' };
-      return { code: 's', name: 'Summer' }; // Default
+    function getSession(char) {
+      if (!char) return { code: 's', name: 'Summer' };
+      const c = char.toUpperCase();
+      if (c === 'F' || c === 'M') return { code: 'm', name: 'March' };
+      if (c === 'J' || c === 'S') return { code: 's', name: 'Summer' };
+      if (c === 'O' || c === 'N' || c === 'W') return { code: 'w', name: 'Winter' };
+      return { code: 's', name: 'Summer' };
     }
 
     function parseCode(text) {
       const clean = text.replace(/\n/g, ' ').toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
-      let sub = manualSubInput.value.trim() || (clean.match(/\d{4}/) ? clean.match(/\d{4}/)[0] : "9709");
+      let manualSub = manualSubInput.value.trim();
+      let sub = manualSub || (clean.match(/\d{4}/) ? clean.match(/\d{4}/)[0] : "9709");
       let pap = "", varnt = "", seas = "s", yr = "24", type = "ms";
 
-      // 1. Check for Pattern: 9709_S24_MS_12
+      // Pattern 1: Underscore (e.g. 9709_S24_MS_12)
       const mUnder = clean.match(/([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-      // 2. Check for Pattern: 9709/12/M/J/24
+      // Pattern 2: Slash (e.g. 1 2 M J 24)
       const mSlash = clean.match(/([1-8])\s*([1-6])\s*([MJONF])\s*([MJONF])?\s*(\d{2})/);
 
       if (mUnder) {
-        const sessionInfo = getSession(mUnder[1]);
-        seas = sessionInfo.code;
-        yr = mUnder[2];
-        type = mUnder[3].toLowerCase();
-        pap = mUnder[4];
-        varnt = mUnder[5];
+        const sess = getSession(mUnder[1]);
+        seas = sess.code; yr = mUnder[2]; type = mUnder[3].toLowerCase(); pap = mUnder[4]; varnt = mUnder[5];
       } else if (mSlash) {
-        pap = mSlash[1];
-        varnt = mSlash[2];
-        const sessionInfo = getSession(mSlash[3]);
-        seas = sessionInfo.code;
-        yr = mSlash[5] || mSlash[6];
-        type = "ms";
+        pap = mSlash[1]; varnt = mSlash[2];
+        const sess = getSession(mSlash[3]);
+        seas = sess.code; yr = mSlash[5]; type = "ms";
       }
 
       if (pap) {
         const typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
         const sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
         
-        resultEl.textContent = `${typeName} P${pap} V${varnt} ${sName} 20${yr}`;
-        subjectEl.textContent = `Subject: ${sub}`;
-
-        // DYNAMIC URL GENERATOR
-        const level = (sub.startsWith('0')) ? 'Cambridge%20IGCSE' : 'AS%20and%20A%20Level';
-        const filename = `${sub}_${seas}${yr}_${type}_${pap}${varnt}.pdf`;
+        // Restore exact "For Rove" output format
+        const finalOutput = `${typeName} Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
         
+        resultEl.textContent = finalOutput;
+        subjectEl.textContent = `Subject: ${sub}`;
+        
+        // Use the force: Manual subject overrides EVERYTHING for the URL
         pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_${type}_${pap}${varnt}.pdf`;
         pdfLink.style.display = 'block';
         
-        if(autoCopy) navigator.clipboard.writeText(resultEl.textContent);
+        if(autoCopy) navigator.clipboard.writeText(finalOutput);
       } else {
-        resultEl.textContent = "Adjust and Rescan";
+        resultEl.textContent = "Adjust position and try again";
       }
     }
 
@@ -296,7 +309,7 @@
       const source = currentMode === 'image' ? uploadedImg : video;
       canvas.width = source.videoWidth || source.naturalWidth;
       canvas.height = source.videoHeight || source.naturalHeight;
-      ctx.filter = 'contrast(150%) brightness(110%) grayscale(100%)';
+      ctx.filter = 'grayscale(100%) contrast(200%) brightness(110%)';
       ctx.drawImage(source, 0, 0);
       mainBtn.disabled = true;
       worker.recognize(canvas).then(({ data: { text } }) => {
