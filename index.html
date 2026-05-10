@@ -43,23 +43,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       border: 1px solid rgba(255,255,255,0.1);
     }
 
     video, #uploaded-img { width: 100%; height: 100%; object-fit: cover; display: none; }
     #uploaded-img { object-fit: contain; background: #0b1926; }
-
-    #aim-box {
-      position: absolute;
-      width: 85%;
-      height: 50px;
-      border: 2px solid #ffffff;
-      border-radius: 10px;
-      pointer-events: none;
-      z-index: 5;
-      display: none;
-    }
 
     .internal-cam-btn {
       position: absolute;
@@ -67,23 +56,35 @@
       z-index: 10;
       background: rgba(255, 255, 255, 0.2);
       backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
       border: 1px solid rgba(255, 255, 255, 0.4);
       color: white;
       padding: 8px 16px;
       border-radius: 20px;
       font-size: 0.7rem;
-      font-family: 'Montserrat', sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 1px;
       cursor: pointer;
-      transition: all 0.3s ease;
+    }
+
+    /* Input Styling */
+    .manual-subject-wrap {
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 15px;
+    }
+    #manual-sub-input {
+      width: 100%;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 10px;
+      border-radius: 6px;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      text-align: center;
     }
 
     .action-row {
       display: flex;
       gap: 8px;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       width: 100%;
       max-width: 340px;
     }
@@ -95,14 +96,11 @@
       padding: 12px 0;
       border-radius: 6px;
       font-size: 0.9rem;
-      font-weight: 300;
       cursor: pointer;
       flex: 1;
       text-align: center;
-      font-family: 'Outfit', sans-serif;
       transition: 0.2s;
     }
-    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
 
     .output-section { width: 100%; max-width: 340px; }
 
@@ -119,7 +117,6 @@
       font-family: 'Montserrat', sans-serif;
       font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 1px;
       opacity: 0.6;
       margin-bottom: 10px;
       display: block;
@@ -138,7 +135,6 @@
       text-decoration: none;
       font-weight: 700;
       margin-top: 5px;
-      font-size: 0.9rem;
     }
 
     .toggle-btn {
@@ -154,10 +150,8 @@
       top: 12px;
     }
     .toggle-btn.off { opacity: 0.4; }
-
     .progress-container { width: 100%; height: 2px; background: var(--progress-bg); margin-top: 10px; }
     #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; }
-
     canvas { display: none; }
   </style>
 </head>
@@ -171,8 +165,11 @@
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
     <img id="uploaded-img">
-    <div id="aim-box"></div>
     <button id="cam-toggle-btn" class="internal-cam-btn" onclick="toggleCamera()">Open Camera</button>
+  </div>
+
+  <div class="manual-subject-wrap">
+    <input type="text" id="manual-sub-input" placeholder="Optional: Manual Subject Code (e.g. 0580)">
   </div>
 
   <div class="action-row">
@@ -210,87 +207,72 @@
     const pdfLink = document.getElementById('pdf-link');
     const mainBtn = document.getElementById('main-btn');
     const camToggleBtn = document.getElementById('cam-toggle-btn');
-    const aimBox = document.getElementById('aim-box');
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
+    const manualSubInput = document.getElementById('manual-sub-input');
     
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
     async function initWorker() {
       if (worker) return;
-      resultEl.textContent = "Loading scanner engine...";
-      try {
-        worker = Tesseract.createWorker({ 
-          logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } 
-        });
-        await worker.load(); 
-        await worker.loadLanguage('eng'); 
-        await worker.initialize('eng');
-        await worker.setParameters({ 
-          tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' 
-        });
-        resultEl.textContent = "Ready to scan...";
-      } catch (e) {
-        resultEl.textContent = "Error loading engine.";
-      }
+      resultEl.textContent = "Loading Engine...";
+      worker = Tesseract.createWorker({ 
+        logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } 
+      });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
     }
 
     async function toggleCamera() {
       if (isCameraOn) {
         if (stream) stream.getTracks().forEach(t => t.stop());
-        video.style.display = 'none';
-        aimBox.style.display = 'none';
-        camToggleBtn.textContent = "Open Camera";
-        isCameraOn = false;
-        stream = null;
+        video.style.display = 'none'; camToggleBtn.textContent = "Open Camera"; isCameraOn = false;
       } else {
         await initWorker();
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
-          });
-          video.srcObject = stream;
-          video.style.display = 'block';
-          uploadedImg.style.display = 'none';
-          aimBox.style.display = 'block';
-          camToggleBtn.textContent = "Close Camera";
-          isCameraOn = true;
-          currentMode = 'camera';
-          mainBtn.textContent = "Scan";
-        } catch (e) { alert("Please enable camera permissions."); }
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+          video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
+          camToggleBtn.textContent = "Close Camera"; isCameraOn = true; currentMode = 'camera';
+        } catch (e) { alert("Camera failed"); }
       }
     }
 
     function parseCode(text) {
-      // Improved cleanup: remove extra whitespace and newlines
       const clean = text.replace(/\n/g, ' ').toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
-      
       let resText = "", urlPart = "";
-      let sub = "9709", pap = "", varnt = "", seas = "", yr = "", type = "ms";
+      
+      // Default to Manual input if provided, otherwise check scan, otherwise default 9709
+      let manualSub = manualSubInput.value.trim();
+      let sub = manualSub || "9709"; 
+      let pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
+      // Regex 1: Underscore (e.g. 9709_S24_MS_12)
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // Regex 2: Slash Style (e.g. 9709 1 2 M J 25)
       const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
+      // Regex 3: Legacy (e.g. 01 O N 05)
       const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
 
       if (mUnder) {
-        sub = mUnder[1] || "9709"; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
+        if(!manualSub && mUnder[1]) sub = mUnder[1];
+        seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
         let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
         resText = `${typeName} Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
       } 
       else if (mSlash) {
-        sub = mSlash[1] || "9709"; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
-        let s = mSlash[4];
-        seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
+        if(!manualSub && mSlash[1]) sub = mSlash[1];
+        pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
+        let s = mSlash[4]; seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
         let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
         resText = `Mark Scheme Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
       }
       else if (mLegacy) {
-        sub = mLegacy[1] || "9709"; pap = mLegacy[2]; yr = mLegacy[5];
-        let s = mLegacy[3];
-        seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
+        if(!manualSub && mLegacy[1]) sub = mLegacy[1];
+        pap = mLegacy[2]; yr = mLegacy[5];
+        let s = mLegacy[3]; seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
         let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
         resText = `Mark Scheme Paper ${pap} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_ms_0${pap}`;
@@ -303,78 +285,50 @@
         pdfLink.style.display = 'block';
         if(autoCopy) navigator.clipboard.writeText(resText);
       } else {
-        resultEl.textContent = "Code not recognized. Try again.";
+        resultEl.textContent = "Not found. Adjust position.";
         pdfLink.style.display = 'none';
-        subjectEl.textContent = "Subject: ----";
-      }
-    }
-
-    async function handleFileUpload(event) {
-      if (event.target.files[0]) {
-        const url = URL.createObjectURL(event.target.files[0]);
-        uploadedImg.src = url;
-        uploadedImg.onload = async () => {
-          await initWorker();
-          if (isCameraOn) await toggleCamera();
-          video.style.display = 'none';
-          uploadedImg.style.display = 'block';
-          currentMode = 'image';
-          mainBtn.textContent = "Scan Image";
-        }
       }
     }
 
     async function handleFlow() {
-      if (currentMode === 'camera' && !isCameraOn) {
-        alert("Click 'Open Camera' first!");
-        return;
-      }
+      if (currentMode === 'camera' && !isCameraOn) { alert("Open Camera First"); return; }
       await initWorker();
-      scan();
-    }
-
-    function scan() {
-      mainBtn.disabled = true;
       const source = currentMode === 'image' ? uploadedImg : video;
-      
-      // Crucial Fix: Ensure the canvas matches the actual source resolution
-      const width = source.videoWidth || source.naturalWidth;
-      const height = source.videoHeight || source.naturalHeight;
-      
-      if (!width || !height) {
-        alert("Source not ready. Wait a second and try again.");
-        mainBtn.disabled = false;
-        return;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      
-      // Image Pre-processing for better OCR
+      canvas.width = source.videoWidth || source.naturalWidth;
+      canvas.height = source.videoHeight || source.naturalHeight;
       ctx.filter = 'grayscale(100%) contrast(200%) brightness(120%)';
-      ctx.drawImage(source, 0, 0, width, height);
-      
+      ctx.drawImage(source, 0, 0);
+      mainBtn.disabled = true;
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
         mainBtn.disabled = false;
         bar.style.width = '0%';
-      }).catch((e) => { 
-        console.error(e);
-        mainBtn.disabled = false; 
       });
     }
 
-    async function handleManualPaste() {
-      try {
-        const text = await navigator.clipboard.readText();
-        if(text) parseCode(text);
-      } catch(e) { alert("Permission required to paste."); }
+    async function handleFileUpload(event) {
+      if (event.target.files[0]) {
+        uploadedImg.src = URL.createObjectURL(event.target.files[0]);
+        uploadedImg.onload = async () => {
+          await initWorker();
+          if (isCameraOn) toggleCamera();
+          uploadedImg.style.display = 'block'; video.style.display = 'none';
+          currentMode = 'image';
+        }
+      }
     }
 
     function toggleCopy() {
       autoCopy = !autoCopy;
       copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
       copyToggle.classList.toggle('off', !autoCopy);
+    }
+
+    async function handleManualPaste() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if(text) parseCode(text);
+      } catch(e) { alert("Paste blocked"); }
     }
   </script>
 </body>
