@@ -58,10 +58,9 @@
       border-radius: 10px;
       pointer-events: none;
       z-index: 5;
-      display: none; /* Only show when camera is on */
+      display: none;
     }
 
-    /* THE NEW INTERNAL CAMERA BUTTON */
     .internal-cam-btn {
       position: absolute;
       bottom: 15px;
@@ -80,7 +79,6 @@
       cursor: pointer;
       transition: all 0.3s ease;
     }
-    .internal-cam-btn:hover { background: rgba(255, 255, 255, 0.3); }
 
     .action-row {
       display: flex;
@@ -97,6 +95,7 @@
       padding: 12px 0;
       border-radius: 6px;
       font-size: 0.9rem;
+      font-weight: 300;
       cursor: pointer;
       flex: 1;
       text-align: center;
@@ -217,24 +216,26 @@
     
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
-    // REFACTORED CAMERA TOGGLE LOGIC
+    async function initWorker() {
+      if (worker) return;
+      resultEl.textContent = "Initializing brain...";
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
+      resultEl.textContent = "Ready to scan...";
+    }
+
     async function toggleCamera() {
       if (isCameraOn) {
-        // TURN OFF
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
+        if (stream) stream.getTracks().forEach(t => t.stop());
         video.style.display = 'none';
         aimBox.style.display = 'none';
         camToggleBtn.textContent = "Open Camera";
         isCameraOn = false;
       } else {
-        // TURN ON
         await initWorker();
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment', width: { ideal: 1280 } } 
-          });
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
           video.srcObject = stream;
           video.style.display = 'block';
           uploadedImg.style.display = 'none';
@@ -242,10 +243,7 @@
           camToggleBtn.textContent = "Close Camera";
           isCameraOn = true;
           currentMode = 'camera';
-          mainBtn.textContent = "Scan";
-        } catch (e) {
-          alert("Camera access denied or unavailable.");
-        }
+        } catch (e) { alert("Camera failed"); }
       }
     }
 
@@ -295,64 +293,56 @@
       }
     }
 
-    async function handleManualPaste() {
-      try {
-        const text = await navigator.clipboard.readText();
-        if(text) parseCode(text);
-      } catch(e) { alert("Enable clipboard permissions"); }
-    }
-
-    function toggleCopy() {
-      autoCopy = !autoCopy;
-      copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
-      copyToggle.classList.toggle('off', !autoCopy);
-    }
-
-    function handleFileUpload(event) {
+    async function handleFileUpload(event) {
       if (event.target.files[0]) {
         const url = URL.createObjectURL(event.target.files[0]);
         uploadedImg.src = url;
-        uploadedImg.onload = () => {
-          // If camera was on, shut it off automatically when uploading
-          if (isCameraOn) toggleCamera(); 
+        uploadedImg.onload = async () => {
+          await initWorker();
+          if (isCameraOn) await toggleCamera();
           video.style.display = 'none';
           uploadedImg.style.display = 'block';
           currentMode = 'image';
-          mainBtn.textContent = "Scan Image";
         }
       }
     }
 
     async function handleFlow() {
       if (currentMode === 'camera' && !isCameraOn) {
-        alert("Please open the camera first using the button in the viewfinder.");
-      } else {
-        await initWorker();
-        scan();
+        alert("Open the camera first!");
+        return;
       }
-    }
-
-    async function initWorker() {
-      if (worker) return;
-      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
-      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
+      await initWorker();
+      scan();
     }
 
     function scan() {
       mainBtn.disabled = true;
-      if (currentMode === 'image') {
-        canvas.width = uploadedImg.naturalWidth; canvas.height = uploadedImg.naturalHeight;
-      } else {
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      }
+      const source = currentMode === 'image' ? uploadedImg : video;
+      canvas.width = source.videoWidth || source.naturalWidth;
+      canvas.height = source.videoHeight || source.naturalHeight;
+      
       ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
-      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
+      ctx.drawImage(source, 0, 0);
+      
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
         mainBtn.disabled = false;
         bar.style.width = '0%';
-      });
+      }).catch(() => { mainBtn.disabled = false; });
+    }
+
+    async function handleManualPaste() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if(text) parseCode(text);
+      } catch(e) { alert("Paste permission denied"); }
+    }
+
+    function toggleCopy() {
+      autoCopy = !autoCopy;
+      copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
+      copyToggle.classList.toggle('off', !autoCopy);
     }
   </script>
 </body>
