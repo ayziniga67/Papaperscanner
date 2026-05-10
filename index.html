@@ -75,7 +75,7 @@
       padding: 12px 0;
       border-radius: 6px;
       font-size: 0.9rem;
-      font-weight: 300; /* Fixed missing semicolon here */
+      font-weight:300;
       cursor: pointer;
       flex: 1;
       text-align: center;
@@ -106,6 +106,7 @@
     }
 
     .subject-sub { font-size: 0.8rem; opacity: 0.5; display: block; margin-bottom: 4px; }
+
     #result-text { font-size: 1.1rem; font-weight: 600; display: block; line-height: 1.3; }
 
     .pdf-btn {
@@ -193,13 +194,12 @@
     
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
-    function getSessionInfo(char1, char2) {
-      // Logic Fix: Prioritize 'J' for Summer to prevent M/J being read as March
-      const c1 = char1 ? char1.toUpperCase() : "";
-      const c2 = char2 ? char2.toUpperCase() : "";
-      if (c1 === 'J' || c2 === 'J' || c1 === 'S') return { code: 's', name: 'Summer' };
-      if (c1 === 'M' || c1 === 'F') return { code: 'm', name: 'March' };
-      if (c1 === 'W' || c1 === 'N' || c1 === 'O') return { code: 'w', name: 'Winter' };
+    // Logic Fix: Unified session detection to prevent M/J misidentification
+    function getSessionInfo(char) {
+      const c = char.toUpperCase();
+      if (c === 'J' || c === 'S') return { code: 's', name: 'Summer' };
+      if (c === 'M' || c === 'F') return { code: 'm', name: 'March' };
+      if (c === 'O' || c === 'N' || c === 'W') return { code: 'w', name: 'Winter' };
       return { code: 's', name: 'Summer' };
     }
 
@@ -222,17 +222,17 @@
       } 
       else if (mSlash) {
         sub = mSlash[1] || "9709"; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
-        const sInfo = getSessionInfo(mSlash[4], mSlash[5]);
+        const sInfo = getSessionInfo(mSlash[4]);
         seas = sInfo.code;
         resText = `Mark Scheme Paper ${pap} Variant ${varnt} ${sInfo.name} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
       }
       else if (mLegacy) {
         sub = mLegacy[1] || "9709"; pap = mLegacy[2]; yr = mLegacy[5];
-        const sInfo = getSessionInfo(mLegacy[3], mLegacy[4]);
+        const sInfo = getSessionInfo(mLegacy[3]);
         seas = sInfo.code;
         resText = `Mark Scheme Paper ${pap} ${sInfo.name} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`; // Keeping original pathing for legacy
+        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`;
       }
 
       if (resText) {
@@ -251,7 +251,10 @@
     async function handleManualPaste() {
       try {
         const text = await navigator.clipboard.readText();
-        if(text) parseCode(text);
+        if(text) {
+          await initWorker();
+          parseCode(text);
+        }
       } catch(e) { alert("Enable clipboard permissions"); }
     }
 
@@ -265,7 +268,8 @@
       if (event.target.files[0]) {
         const url = URL.createObjectURL(event.target.files[0]);
         uploadedImg.src = url;
-        uploadedImg.onload = () => {
+        uploadedImg.onload = async () => {
+          await initWorker();
           if (stream) stream.getTracks().forEach(t => t.stop());
           isCameraOn = false; video.style.display = 'none'; uploadedImg.style.display = 'block';
           currentMode = 'image'; mainBtn.textContent = "Scan Image";
@@ -274,8 +278,8 @@
     }
 
     async function handleFlow() {
+      await initWorker(); // Ensure worker is ready before doing anything
       if (currentMode === 'camera' && !isCameraOn) {
-        await initWorker();
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 } } });
           video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
@@ -286,21 +290,25 @@
 
     async function initWorker() {
       if (worker) return;
+      resultEl.textContent = "Loading Engine...";
       worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
       await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
+      resultEl.textContent = "Ready...";
     }
 
     function scan() {
-      if (!worker) { alert("Please wait for worker to load"); return; }
+      if (!worker) return;
       mainBtn.disabled = true;
-      const source = currentMode === 'image' ? uploadedImg : video;
-      canvas.width = (currentMode === 'image') ? source.naturalWidth : source.videoWidth; 
-      canvas.height = (currentMode === 'image') ? source.naturalHeight : source.videoHeight;
+      const src = currentMode === 'image' ? uploadedImg : video;
+      
+      // Logic Fix: Ensure canvas matches the actual image/video source exactly
+      canvas.width = (currentMode === 'image') ? src.naturalWidth : src.videoWidth;
+      canvas.height = (currentMode === 'image') ? src.naturalHeight : src.videoHeight;
       
       ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
-      // Logic Fix: Draw the full source image onto the full canvas size
-      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      // Logic Fix: Specifically defining the source and destination dimensions to prevent blank scans
+      ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
       
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
