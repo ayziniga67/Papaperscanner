@@ -80,7 +80,6 @@
       text-align: center;
       outline: none;
     }
-    #manual-sub-input:focus { border-color: #ffffff; background: rgba(255,255,255,0.15); }
 
     .action-row {
       display: flex;
@@ -170,7 +169,7 @@
   </div>
 
   <div class="manual-subject-wrap">
-    <input type="text" id="manual-sub-input" placeholder="Subject Code (Enter to Apply)" onkeypress="if(event.key==='Enter') handleFlow()">
+    <input type="text" id="manual-sub-input" placeholder="Subject Code (e.g. 0580)" onkeypress="if(event.key==='Enter') handleFlow()">
   </div>
 
   <div class="action-row">
@@ -216,7 +215,6 @@
 
     async function initWorker() {
       if (worker) return;
-      resultEl.textContent = "Loading Engine...";
       worker = Tesseract.createWorker({ 
         logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } 
       });
@@ -238,58 +236,57 @@
       }
     }
 
+    function getSession(text) {
+      if (text.includes('F') || text.includes('M')) return { code: 'm', name: 'March' };
+      if (text.includes('J') || text.includes('S')) return { code: 's', name: 'Summer' };
+      if (text.includes('O') || text.includes('N') || text.includes('W')) return { code: 'w', name: 'Winter' };
+      return { code: 's', name: 'Summer' }; // Default
+    }
+
     function parseCode(text) {
       const clean = text.replace(/\n/g, ' ').toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
-      let resText = "", urlPart = "";
       
-      let manualSub = manualSubInput.value.trim();
-      let sub = manualSub || "9709"; 
-      let pap = "", varnt = "", seas = "", yr = "", type = "ms";
+      let sub = manualSubInput.value.trim() || (clean.match(/\d{4}/) ? clean.match(/\d{4}/)[0] : "9709");
+      let pap = "", varnt = "", seas = "s", yr = "24", type = "ms";
 
-      // Pattern 1: Underscore (Improved)
-      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-      // Pattern 2: Slash Style (Improved to catch M/J/O/N more reliably)
-      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MJONF])\s*([MJONF])?\s*(?:20)?(\d{2})/);
-      // Pattern 3: Legacy
-      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MJONF])\s*([MJONF])?\s*(?:20)?(\d{2})/);
+      // 1. Check for Pattern: 9709_S24_MS_12
+      const mUnder = clean.match(/([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // 2. Check for Pattern: 9709/12/M/J/24
+      const mSlash = clean.match(/([1-8])\s*([1-6])\s*([MJONF])\s*([MJONF])?\s*(\d{2})/);
 
       if (mUnder) {
-        if(!manualSub && mUnder[1]) sub = mUnder[1];
-        seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
-        let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
-        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
-        resText = `${typeName} Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
-      } 
-      else if (mSlash) {
-        if(!manualSub && mSlash[1]) sub = mSlash[1];
-        pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
-        let s = mSlash[4]; 
-        // Logic for MJ / ON
-        seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
-        let sName = (s === 'M' || s === 'F') ? "March" : ((s === 'J' || s === 'S') ? "Summer" : "Winter");
-        resText = `Mark Scheme Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
-      }
-      else if (mLegacy) {
-        if(!manualSub && mLegacy[1]) sub = mLegacy[1];
-        pap = mLegacy[2]; yr = mLegacy[5];
-        let s = mLegacy[3]; 
-        seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
-        let sName = (s === 'M' || s === 'F') ? "March" : ((s === 'J' || s === 'S') ? "Summer" : "Winter");
-        resText = `Mark Scheme Paper ${pap} ${sName} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`;
+        const sessionInfo = getSession(mUnder[1]);
+        seas = sessionInfo.code;
+        yr = mUnder[2];
+        type = mUnder[3].toLowerCase();
+        pap = mUnder[4];
+        varnt = mUnder[5];
+      } else if (mSlash) {
+        pap = mSlash[1];
+        varnt = mSlash[2];
+        const sessionInfo = getSession(mSlash[3]);
+        seas = sessionInfo.code;
+        yr = mSlash[5] || mSlash[6];
+        type = "ms";
       }
 
-      if (resText) {
+      if (pap) {
+        const typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
+        const sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        
+        resultEl.textContent = `${typeName} P${pap} V${varnt} ${sName} 20${yr}`;
         subjectEl.textContent = `Subject: ${sub}`;
-        resultEl.textContent = resText;
-        pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${urlPart}.pdf`;
+
+        // DYNAMIC URL GENERATOR
+        const level = (sub.startsWith('0')) ? 'Cambridge%20IGCSE' : 'AS%20and%20A%20Level';
+        const filename = `${sub}_${seas}${yr}_${type}_${pap}${varnt}.pdf`;
+        
+        pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_${type}_${pap}${varnt}.pdf`;
         pdfLink.style.display = 'block';
-        if(autoCopy) navigator.clipboard.writeText(resText);
+        
+        if(autoCopy) navigator.clipboard.writeText(resultEl.textContent);
       } else {
-        resultEl.textContent = "Code not found. Adjust and retry.";
-        pdfLink.style.display = 'none';
+        resultEl.textContent = "Adjust and Rescan";
       }
     }
 
@@ -299,7 +296,7 @@
       const source = currentMode === 'image' ? uploadedImg : video;
       canvas.width = source.videoWidth || source.naturalWidth;
       canvas.height = source.videoHeight || source.naturalHeight;
-      ctx.filter = 'grayscale(100%) contrast(200%) brightness(120%)';
+      ctx.filter = 'contrast(150%) brightness(110%) grayscale(100%)';
       ctx.drawImage(source, 0, 0);
       mainBtn.disabled = true;
       worker.recognize(canvas).then(({ data: { text } }) => {
