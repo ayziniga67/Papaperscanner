@@ -248,9 +248,13 @@
       let resText = "";
       let pap = "", varnt = "", seas = "", yr = "";
 
+      // 1. Standard Underscore (9709_s23_qp_12)
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
-      const mShort = clean.match(/([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
+      // 2. Short/Image format (s09_qp_1 or s15_qp_12) - Loosened regex for 2010-2019
+      const mShort = clean.match(/([MSW])\s*(\d{2})\s*[_ ]?\s*(QP|MS)\s*[_ ]?\s*(\d)(\d)?/);
+      // 3. Slash/Space format (9709 12 MJ 15)
       const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+      // 4. Legacy format (9709 01 MJ 06)
       const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
 
       let detectedSub = "";
@@ -286,8 +290,15 @@
       }
 
       if (seas && pap) {
+        let yrInt = parseInt(yr);
+        
+        // CONDITION: If year is less than 2010 (00-09), ignore the variant
+        if (yrInt < 10) {
+            varnt = "";
+        }
+
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
-        let fullYear = (parseInt(yr) > 50 ? "19" : "20") + yr;
+        let fullYear = (yrInt > 50 ? "19" : "20") + yr;
         resText = `Paper ${pap}${varnt ? " Variant " + varnt : ""} ${sName} ${fullYear}`;
         
         subjectEl.textContent = `Subject: ${sub}`;
@@ -339,7 +350,7 @@
 
       const scale = 3; 
       canvas.width = sw * scale; canvas.height = sh * scale;
-      ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
+      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)'; // Increased contrast for older paper clarity
       ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
       
       worker.recognize(canvas).then(({ data: { text } }) => {
