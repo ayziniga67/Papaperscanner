@@ -1,150 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Finder v2</title>
-    <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
-        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { width: 100%; max-width: 400px; background: var(--card); padding: 25px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); }
-        h1 { font-size: 1.4rem; text-align: center; color: var(--accent); margin-bottom: 20px; }
-        #preview { width: 100%; height: 200px; background: #000; border-radius: 12px; object-fit: contain; margin-bottom: 15px; border: 1px solid #334155; }
-        
-        input[type="text"] {
-            width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid var(--accent);
-            background: rgba(15, 23, 42, 0.5); color: white; text-align: center; font-size: 1rem;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepSearch - Question Finder</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #1a2a3a; --card: #004d4d; --accent: #38bdf8; --text: #ffffff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; }
+    
+    #preview-wrap { width: 100%; max-width: 340px; height: 200px; background: #0b1926; border-radius: 15px; margin-bottom: 15px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+    #preview-img { width: 100%; height: 100%; object-fit: contain; }
 
-        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: var(--accent); color: var(--bg); font-weight: 700; cursor: pointer; margin-bottom: 10px; }
-        .btn-alt { background: transparent; border: 2px solid var(--accent); color: var(--accent); }
-        #status { font-size: 0.85rem; text-align: center; color: #94a3b8; margin: 10px 0; min-height: 20px; }
-        
-        .result-box { margin-top: 20px; padding: 15px; background: rgba(56, 189, 248, 0.1); border-radius: 12px; display: none; text-align: center; }
-        a { color: var(--bg); background: var(--accent); text-decoration: none; font-weight: 700; display: block; padding: 12px; border-radius: 8px; margin-top: 10px; }
-    </style>
+    input[type="text"] {
+      width: 100%; max-width: 340px; padding: 14px; border-radius: 8px; border: 2px solid #ffffff;
+      background: rgba(0, 77, 77, 0.3); color: white; text-align: center; margin-bottom: 15px; outline: none;
+    }
+
+    .btn { width: 100%; max-width: 340px; padding: 15px; border-radius: 8px; border: 1.5px solid white; background: transparent; color: white; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
+    .btn:active { background: rgba(255,255,255,0.1); }
+    .btn-main { background: var(--accent); color: #000; border: none; }
+
+    #status { font-size: 0.85rem; opacity: 0.7; margin-bottom: 15px; text-align: center; }
+    
+    .result-section { width: 100%; max-width: 340px; background: rgba(0, 77, 77, 0.4); padding: 20px; border-radius: 12px; border: 3px solid #ffffff; display: none; }
+    .page-box { font-size: 1.5rem; font-weight: 700; color: var(--accent); margin: 10px 0; }
+    .ms-link { display: block; background: #ffffff; color: #004d4d; padding: 15px; text-align: center; border-radius: 8px; text-decoration: none; font-weight: 700; margin-top: 10px; }
+    
+    .progress-bar { width: 100%; max-width: 340px; height: 4px; background: rgba(255,255,255,0.1); margin-top: 10px; position: relative; overflow: hidden; }
+    #bar { height: 100%; background: var(--accent); width: 0%; transition: 0.3s; }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Deep Finder Fix</h1>
-    
-    <input type="text" id="manual-sub" placeholder="Subject Code (e.g. 9702)">
-    
-    <img id="preview" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
-    
-    <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFile(event)">
-    <button class="btn" onclick="document.getElementById('file-input').click()">1. Upload Photo</button>
-    <button id="scan-btn" class="btn btn-alt" style="display:none" onclick="startDeepSearch()">2. Deep Search PDF</button>
+  <div class="header">
+    <h1>DeepSearch v1</h1>
+    <p style="font-size: 0.7rem; opacity: 0.6;">Find the exact page from a photo</p>
+  </div>
 
-    <div id="status">Ready.</div>
+  <div id="preview-wrap">
+    <img id="preview-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+  </div>
 
-    <div id="result" class="result-box">
-        <b id="paper-info">--</b><br>
-        <small id="page-indicator">Searching pages...</small>
-        <a id="ms-link" target="_blank">Open Mark Scheme</a>
-    </div>
-</div>
+  <input type="text" id="manual-sub" placeholder="Subject Code (e.g. 9702)">
 
-<script>
+  <input type="file" id="file-input" accept="image/*" style="display:none" onchange="loadImg(event)">
+  <button class="btn" onclick="document.getElementById('file-input').click()">Upload Question</button>
+  <button id="find-btn" class="btn btn-main" style="display:none" onclick="runDeepSearch()">Deep Search PDF</button>
+
+  <div id="status">Ready...</div>
+  <div class="progress-bar"><div id="bar"></div></div>
+
+  <div id="result" class="result-section">
+    <span style="font-size: 0.7rem; text-transform: uppercase;">Paper Identified</span>
+    <div id="paper-title" style="font-weight: 600;">---</div>
+    <div class="page-box" id="page-num">Searching...</div>
+    <a id="ms-url" class="ms-link" target="_blank">View Mark Scheme</a>
+  </div>
+
+  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    let extractedText = "";
 
-    const subjectMap = { "9709": "Mathematics (9709)", "0580": "Mathematics (0580)", "9702": "Physics (9702)", "0625": "Physics (0625)", "9701": "Chemistry (9701)", "0620": "Chemistry (0620)" };
-
-    function handleFile(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (f) => {
-            document.getElementById('preview').src = f.target.result;
-            document.getElementById('scan-btn').style.display = 'block';
-            document.getElementById('status').textContent = "Photo loaded.";
-        };
-        reader.readAsDataURL(file);
+    function loadImg(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (f) => {
+        document.getElementById('preview-img').src = f.target.result;
+        document.getElementById('find-btn').style.display = 'block';
+        document.getElementById('status').textContent = "Image loaded.";
+        document.getElementById('result').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
     }
 
-    async function startDeepSearch() {
-        const status = document.getElementById('status');
-        const btn = document.getElementById('scan-btn');
-        btn.disabled = true;
-        status.textContent = "OCR: Starting worker...";
-
-        try {
-            // Simplified Worker init to prevent "stuck" state
-            const worker = await Tesseract.createWorker('eng');
-            status.textContent = "OCR: Reading image...";
-            const { data: { text } } = await worker.recognize(document.getElementById('preview'));
-            await worker.terminate();
-
-            processResult(text);
-        } catch (err) {
-            status.textContent = "OCR Error: " + err.message;
-            btn.disabled = false;
-        }
-    }
-
-    function processResult(text) {
-        const status = document.getElementById('status');
-        const subInput = document.getElementById('manual-sub').value.trim();
+    async function runDeepSearch() {
+      const status = document.getElementById('status');
+      const bar = document.getElementById('bar');
+      const findBtn = document.getElementById('find-btn');
+      
+      findBtn.disabled = true;
+      status.textContent = "OCR: Starting analysis...";
+      
+      try {
+        // Initialize Tesseract 5 (fast & stable)
+        const worker = await Tesseract.createWorker('eng', 1, {
+          logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; }
+        });
         
-        // Clean text and look for M23/12 style
-        const clean = text.toUpperCase().replace(/\s+/g, '');
-        const mMatch = clean.match(/([FMSW])(\d{2})\/(\d{1,2})/); // Handles M23/12
-
-        if (mMatch) {
-            const seasChar = mMatch[1];
-            const yr = mMatch[2];
-            const papVar = mMatch[3];
-            const sub = subInput || "9702"; 
-            
-            let seas = (seasChar === 'M' || seasChar === 'F') ? 'm' : (seasChar === 'S' || seasChar === 'J' ? 's' : 'w');
-            
-            fetchAndSearch(sub, seas, yr, papVar, text);
-        } else {
-            status.textContent = "Couldn't find paper code (e.g. M23/12) in photo.";
-            document.getElementById('scan-btn').disabled = false;
-        }
+        const { data: { text } } = await worker.recognize(document.getElementById('preview-img'));
+        extractedText = text;
+        await worker.terminate();
+        
+        status.textContent = "Processing code...";
+        parseAndSearch(text);
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+        findBtn.disabled = false;
+      }
     }
 
-    async function fetchAndSearch(sub, seas, yr, papVar, fullText) {
-        const status = document.getElementById('status');
-        const level = sub.startsWith('0') ? 'IGCSE' : 'A%20Levels';
-        const subName = subjectMap[sub] || sub;
+    async function parseAndSearch(text) {
+      const subInput = document.getElementById('manual-sub').value.trim() || "9702";
+      const clean = text.toUpperCase().replace(/\s+/g, '');
+      
+      // Look for the M23/12/Q1 format
+      const mMatch = clean.match(/([FMSW])(\d{2})\/(\d{1,2})/); 
+      
+      if (mMatch) {
+        const seasKey = mMatch[1]; // M
+        const yr = mMatch[2];      // 23
+        const papVar = mMatch[3];  // 12
         
-        const qpUrl = `https://papers.gceguide.net/${level}/${subName}/20${yr}/${sub}_${seas}${yr}_qp_${papVar}.pdf`;
-        const msUrl = `https://papers.gceguide.net/${level}/${subName}/20${yr}/${sub}_${seas}${yr}_ms_${papVar}.pdf`;
+        let seas = (seasKey === 'M' || seasKey === 'F') ? 'm' : (seasKey === 'S' || seasKey === 'J' ? 's' : 'w');
+        
+        // Construct PapaCambridge URL
+        const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${subInput}_${seas}${yr}_qp_${papVar}.pdf`;
+        const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${subInput}_${seas}${yr}_ms_${papVar}.pdf`;
 
-        status.textContent = "Locating question in PDF...";
         document.getElementById('result').style.display = 'block';
-        document.getElementById('paper-info').textContent = `${sub} Paper ${papVar} (20${yr})`;
-
-        try {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(qpUrl)}`;
-            const loadingTask = pdfjsLib.getDocument(proxyUrl);
-            const pdf = await loadingTask.promise;
-            
-            // Search for keywords from the question
-            const keywords = fullText.toLowerCase().replace(/[^a-z ]/g, '').split(' ').filter(w => w.length > 4).slice(0, 3);
-            
-            let foundPage = 1;
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                const pageText = content.items.map(item => item.str).join(' ').toLowerCase();
-                if (keywords.every(k => pageText.includes(k))) { foundPage = i; break; }
-            }
-
-            document.getElementById('page-indicator').textContent = `Found on Page ${foundPage}`;
-            document.getElementById('ms-link').href = `${msUrl}#page=${foundPage}`;
-            status.textContent = "Search complete.";
-        } catch (e) {
-            status.textContent = "PDF Search failed. Check Subject Code/Internet.";
-            document.getElementById('ms-link').href = msUrl;
-        }
+        document.getElementById('paper-title').textContent = `${subInput} / ${seasKey}${yr} / Paper ${papVar}`;
+        
+        await findPageInPdf(qpUrl, msUrl, text);
+      } else {
+        document.getElementById('status').textContent = "Couldn't find paper ID in image (e.g., M23/12).";
+        document.getElementById('find-btn').disabled = false;
+      }
     }
-</script>
+
+    async function findPageInPdf(qpUrl, msUrl, ocrText) {
+      const status = document.getElementById('status');
+      const pageDisp = document.getElementById('page-num');
+      
+      status.textContent = "Downloading PDF and searching pages...";
+      
+      // Use CORS Proxy to bypass PapaCambridge block
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(qpUrl)}`;
+
+      try {
+        const loadingTask = pdfjsLib.getDocument(proxyUrl);
+        const pdf = await loadingTask.promise;
+        
+        // Pick 3 unique words from the question for matching
+        const words = ocrText.toLowerCase().replace(/[^a-z ]/g, '').split(' ')
+                      .filter(w => w.length > 4).slice(0, 4);
+
+        let targetPage = 1;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map(item => item.str).join(' ').toLowerCase();
+          
+          // Match logic: If at least 2 key words are on the page
+          const matchCount = words.filter(word => pageText.includes(word)).length;
+          if (matchCount >= 2) {
+            targetPage = i;
+            break;
+          }
+        }
+
+        pageDisp.textContent = "Question on Page " + targetPage;
+        document.getElementById('ms-url').href = `${msUrl}#page=${targetPage}`;
+        status.textContent = "Deep Search Complete!";
+      } catch (err) {
+        status.textContent = "PDF access error (CORS or Paper not found).";
+        document.getElementById('ms-url').href = msUrl;
+        pageDisp.textContent = "Page search failed";
+      }
+      document.getElementById('find-btn').disabled = false;
+    }
+  </script>
 </body>
 </html>
