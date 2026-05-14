@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Direct Access</title>
+  <title>Leakbridge MS-First</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
@@ -12,51 +12,45 @@
     body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .container { width: 100%; max-width: 400px; }
     
-    /* Input Area */
-    .input-card { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-    input { width: 100%; padding: 15px; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; font-size: 1rem; text-align: center; margin-top: 10px; transition: 0.3s; }
-    input:focus { border-color: var(--accent); outline: none; }
+    .input-card { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
+    input { width: 100%; padding: 15px; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; text-align: center; margin-top: 10px; }
 
-    /* Action Buttons */
-    .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+    .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
     .btn-primary { background: var(--accent); color: #0f172a; }
-    .btn-secondary { background: transparent; border: 1px solid #334155; color: white; }
-    .btn:active { transform: scale(0.98); }
-
-    /* Result Section */
-    #result-area { display: none; margin-top: 20px; animation: slideUp 0.4s ease; }
-    .badge { background: var(--accent); color: #000; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; }
+    
+    #result-area { display: none; width: 100%; margin-top: 20px; }
+    .status-pill { background: rgba(56, 189, 248, 0.2); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    
     iframe { width: 100%; height: 500px; border-radius: 12px; border: none; background: white; margin-top: 15px; }
-
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    #status { font-size: 0.8rem; opacity: 0.6; text-align: center; margin: 10px; }
+    .link-bar { display: flex; gap: 10px; margin: 10px 0; }
+    .link-bar a { flex: 1; background: #fff; color: #000; text-align: center; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 0.8rem; border: 2px solid var(--accent); }
   </style>
 </head>
 <body>
 
 <div class="container">
   <div class="input-card">
-    <label style="font-size: 0.7rem; font-weight: 600; opacity: 0.5;">MANUAL OVERRIDE / DETECTION</label>
-    <input type="text" id="manual-input" placeholder="Enter Code (e.g. 9702 M23/12)">
-    <div id="status">Waiting for input or photo...</div>
+    <input type="text" id="manual-input" placeholder="9702 M23/12">
+    <div id="status" style="text-align:center; font-size:0.8rem; margin-top:10px; opacity:0.6;">Ready</div>
   </div>
 
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="handleLogic()">FIND PAPER NOW</button>
-    <label class="btn btn-secondary" style="display:block; text-align:center;">
-      UPLOAD PHOTO <input type="file" hidden id="file-in" onchange="processFile(event)">
-    </label>
-  </div>
+  <button class="btn btn-primary" id="go-btn" onclick="masterControl()">OPEN MARK SCHEME</button>
+  
+  <label class="btn" style="display:block; text-align:center; background:#334155; color:white;">
+    SCAN QUESTION PHOTO <input type="file" hidden id="file-in" onchange="processImage(event)">
+  </label>
 
   <div id="result-area">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <span id="res-title" style="font-weight:600;">PAPER FOUND</span>
-      <span class="badge" id="res-page">SCANNING PAGES...</span>
+      <span id="paper-label" style="font-weight:600;"></span>
+      <span class="status-pill" id="page-status">IDLE</span>
     </div>
-    <div style="display:flex; gap: 10px; margin-top: 10px;">
-      <a id="ms-link" target="_blank" style="flex:1; background:white; color:black; text-align:center; padding:10px; border-radius:6px; text-decoration:none; font-weight:700; font-size:0.8rem;">MS PDF</a>
-      <a id="qp-link" target="_blank" style="flex:1; background:white; color:black; text-align:center; padding:10px; border-radius:6px; text-decoration:none; font-weight:700; font-size:0.8rem;">QP PDF</a>
+
+    <div class="link-bar">
+      <a id="ms-url" target="_blank">MARK SCHEME (NEW TAB)</a>
+      <a id="qp-url" target="_blank">VIEW QP</a>
     </div>
+
     <iframe id="viewer"></iframe>
   </div>
 </div>
@@ -64,83 +58,107 @@
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   
-  let ocrResult = "";
+  let detectedText = "";
 
-  async function processFile(e) {
+  // 1. Handle the Photo
+  async function processImage(e) {
     const file = e.target.files[0];
     if(!file) return;
-    document.getElementById('status').innerText = "Analyzing photo...";
-    
-    const worker = await Tesseract.createWorker('eng');
-    const { data: { text } } = await worker.recognize(file);
-    ocrResult = text;
-    await worker.terminate();
-    
-    document.getElementById('status').innerText = "Photo read. Click Find Paper.";
-    // Auto-fill if it finds a code
-    const m = text.toUpperCase().replace(/\s+/g, '').match(/(\d{4})?.*?([FMSW])(\d{2})\/(\d{1,2})/);
-    if(m) document.getElementById('manual-input').value = (m[1]||"") + " " + m[2] + m[3] + "/" + m[4];
-  }
-
-  function handleLogic() {
-    const manual = document.getElementById('manual-input').value.toUpperCase().replace(/\s+/g, '');
     const status = document.getElementById('status');
+    status.innerText = "Reading text from image...";
     
-    // Regex for: Subject(4) Session(1) Year(2) / Paper(2)
-    const m = manual.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})/);
-
-    if (m) {
-      const sub = m[1];
-      const seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
-      const yr = m[3];
-      const pap = m[4];
-      
-      status.innerText = "Connecting to repository...";
-      loadPaper(sub, seas, yr, pap);
-    } else {
-      status.innerText = "Format Error. Use: 9702 M23/12";
-      document.getElementById('manual-input').style.borderColor = "red";
-    }
-  }
-
-  function loadPaper(sub, seas, yr, pap) {
-    const qp = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
-    const ms = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-
-    document.getElementById('result-area').style.display = 'block';
-    document.getElementById('res-title').innerText = `${sub} | ${yr} | P${pap}`;
-    document.getElementById('ms-link').href = ms;
-    document.getElementById('qp-link').href = qp;
-    
-    // Direct embed via Google Viewer (Most reliable for mobile)
-    document.getElementById('viewer').src = `https://docs.google.com/viewer?url=${encodeURIComponent(qp)}&embedded=true`;
-    
-    // Deep Search (only if OCR text exists)
-    if(ocrResult) {
-       deepSearch(qp, ocrResult);
-    } else {
-       document.getElementById('res-page').innerText = "MANUAL MODE";
-    }
-  }
-
-  async function deepSearch(url, text) {
     try {
-      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-      const pdf = await pdfjsLib.getDocument(proxy).promise;
-      const keys = text.toLowerCase().match(/\b(\w{5,})\b/g).slice(0, 5); // Pick 5 long words
+      const worker = await Tesseract.createWorker('eng');
+      const { data: { text } } = await worker.recognize(file);
+      detectedText = text;
+      await worker.terminate(); // Kill worker immediately to save RAM
+
+      status.innerText = "Text captured. Parsing code...";
+      // Try to auto-fill the code box
+      const m = text.toUpperCase().replace(/\s+/g, '').match(/(\d{4})?.*?([FMSW])(\d{2})\/(\d{1,2})/);
+      if(m) document.getElementById('manual-input').value = (m[1]||"") + " " + m[2] + m[3] + "/" + m[4];
       
+      status.innerText = "Ready to search.";
+    } catch(err) {
+      status.innerText = "OCR failed. Enter code manually.";
+    }
+  }
+
+  // 2. Main Logic Trigger
+  function masterControl() {
+    const input = document.getElementById('manual-input').value.toUpperCase().replace(/\s+/g, '');
+    const m = input.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})/);
+
+    if(!m) {
+      alert("Please enter code correctly: e.g. 9702 M23/12");
+      return;
+    }
+
+    const sub = m[1];
+    const seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
+    const yr = m[3];
+    const pap = m[4];
+
+    // Build URLs
+    const ms = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+    const qp = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
+
+    // UI Updates
+    document.getElementById('result-area').style.display = 'block';
+    document.getElementById('paper-label').innerText = `${sub} P${pap} ${m[2]}${yr}`;
+    document.getElementById('ms-url').href = ms;
+    document.getElementById('qp-url').href = qp;
+    
+    // Load MARK SCHEME in the viewer (User's primary goal)
+    document.getElementById('viewer').src = `https://docs.google.com/viewer?url=${encodeURIComponent(ms)}&embedded=true`;
+
+    // Start background search if we have question text
+    if(detectedText) {
+      runDeepSearch(qp, ms, detectedText);
+    } else {
+      document.getElementById('page-status').innerText = "MANUAL BROWSE";
+    }
+  }
+
+  // 3. The "Deep Search" Logic
+  async function runDeepSearch(qpUrl, msUrl, text) {
+    const statusEl = document.getElementById('page-status');
+    statusEl.innerText = "SEARCHING PAGES...";
+    
+    try {
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(qpUrl)}`;
+      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      
+      // Filter for unique technical keywords
+      const keys = text.toLowerCase()
+                      .replace(/[^a-z ]/g, '')
+                      .split(' ')
+                      .filter(w => w.length > 5)
+                      .slice(0, 4);
+
+      if(keys.length === 0) {
+        statusEl.innerText = "TEXT TOO SHORT";
+        return;
+      }
+
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const full = content.items.map(s => s.str).join(' ').toLowerCase();
-        if (keys.every(k => full.includes(k))) {
-          document.getElementById('res-page').innerText = "FOUND ON PAGE " + i;
+        const pageText = content.items.map(s => s.str).join(' ').toLowerCase();
+        
+        // If 2 or more keys match, we found the page
+        const matches = keys.filter(k => pageText.includes(k)).length;
+        if (matches >= 2) {
+          statusEl.innerText = "MATCH: PAGE " + i;
+          // Redirect the internal viewer to the specific MS page
+          const jumpLink = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${i}`;
+          document.getElementById('viewer').src = jumpLink;
           return;
         }
       }
-      document.getElementById('res-page').innerText = "PAGE NOT FOUND";
+      statusEl.innerText = "NO PAGE MATCH";
     } catch(e) {
-      document.getElementById('res-page').innerText = "SEARCH BLOCKED";
+      statusEl.innerText = "SEARCH BLOCKED";
     }
   }
 </script>
