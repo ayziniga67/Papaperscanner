@@ -216,16 +216,18 @@
 
     function parseCode(text) {
       const manualSub = document.getElementById('manual-sub').value.trim();
-      // Keep slashes for the strict regex, clean other junk
-      const clean = text.toUpperCase().replace(/[^A-Z0-9_/ ]/g, '').trim();
+      
+      // 1. Instantly nuke Question numbers (e.g., Q4, Q 12, QUESTION 5) to protect the smart scanner
+      let clean = text.toUpperCase().replace(/\b(Q|QUESTION)\s*\d+\b/g, '');
+      
+      // 2. Keep underscores/slashes for the strict regex, clean other junk
+      clean = clean.replace(/[^A-Z0-9_/ ]/g, '').trim();
       
       let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
 
-      // --- 1. THE "STRICT" SUITE (FIXED FOR OLD TEMPLATES) ---
+      // --- 1. THE "STRICT" SUITE (Handles Old Templates: Slashes & Underscores) ---
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
       const mShort = clean.match(/([MSW])\s*(\d{2})\s*(?:QP|MS)\s*(\d)(\d)?/);
-      
-      // FIXED mSlash: handles 9709/12/M/J/22 and similar slash formats
       const mSlash = clean.match(/(\d{4})?[\s/]*(\d)([\d])?[\s/]+(M[\s/]*J|O[\s/]*N|F[\s/]*M|S|W|M)[\s/]*(?:20)?(\d{2})/);
 
       if (mUnder || mShort || mSlash) {
@@ -244,7 +246,7 @@
           if (!sub && mSlash[1]) sub = mSlash[1];
           pap = mSlash[2];
           varnt = mSlash[3] || "";
-          let sStr = mSlash[4].replace(/[\s/]/g, ''); // Clean M/J to MJ
+          let sStr = mSlash[4].replace(/[\s/]/g, '');
           yr = mSlash[5];
           seas = (sStr==='MJ'||sStr==='S')?'s':(sStr==='ON'||sStr==='W'?'w':'m');
         }
@@ -252,38 +254,46 @@
         finalizeScan(sub, seas, yr, pap, varnt);
       } 
       else {
-        // --- 2. THE "SMART" FALLBACK (UNCHANGED) ---
+        // --- 2. THE "SMART" FALLBACK (Handles Unstructured / Newer Codes) ---
         runSmartFallback(clean, sub);
       }
     }
 
     function runSmartFallback(clean, sub) {
       let pap = "", varnt = "", seas = "", yr = "";
+      // Strip slashes and underscores to treat it like a bag of words
       const smartClean = clean.replace(/[/_]/g, ' ').replace(/\s+/g, ' ');
 
+      // A. Subject
       if (!sub) {
         let subMatch = smartClean.match(/\b([0789]\d{3})\b/);
         sub = subMatch ? subMatch[1] : "9709";
       }
 
+      // B. Session
       if (/\b(M\s*J|S)\b/.test(smartClean)) seas = 's';
       else if (/\b(O\s*N|W)\b/.test(smartClean)) seas = 'w';
       else if (/\b(F\s*M|M)\b/.test(smartClean)) seas = 'm';
 
-      let fullYear = smartClean.match(/\b20(\d{2})\b/);
-      if (fullYear) yr = fullYear[1];
-      else {
-        let yrAfterSeas = smartClean.match(/(?:MJ|ON|FM|S|W|M)\s*(\d{2})\b/);
-        yr = yrAfterSeas ? yrAfterSeas[1] : "";
+      // C. Year
+      let fullYear = smartClean.match(/\b(?:20)?(\d{2})\b/); // Fallback to matching 2-digit years specifically
+      
+      let yrAfterSeas = smartClean.match(/(?:MJ|ON|FM|S|W|M)\s*(\d{2})\b/);
+      if (yrAfterSeas) {
+        yr = yrAfterSeas[1];
+      } else {
+        let strictFullYear = smartClean.match(/\b(?:20)(\d{2})\b/);
+        if (strictFullYear) yr = strictFullYear[1];
       }
 
+      // D. Paper/Variant
       let qpMatch = smartClean.match(/(?:QP|MS|PAPER)\s*(\d{1,2})\b/);
       if (qpMatch) {
         pap = qpMatch[1][0];
         varnt = qpMatch[1].length > 1 ? qpMatch[1][1] : "";
       } else {
         let loose = smartClean.match(/\b\d{1,2}\b/g) || [];
-        loose = loose.filter(n => n !== yr);
+        loose = loose.filter(n => n !== yr); // Ensure it doesn't pick up the year as a paper
         if (loose.length > 0) {
           pap = loose[0][0];
           varnt = loose[0].length > 1 ? loose[0][1] : "";
@@ -299,6 +309,7 @@
     }
 
     function finalizeScan(sub, seas, yr, pap, varnt) {
+      sub = sub || "9709"; // Final safety net for subject
       const yrInt = parseInt(yr);
       const sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
       const fullYearStr = (yrInt > 50 ? "19" : "20") + yr;
