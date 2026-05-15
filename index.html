@@ -13,19 +13,17 @@
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Media Box */
     #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
     
     #overlay { 
       position: absolute; top:0; left:0; width:100%; height:100%; 
-      background: rgba(15, 23, 42, 0.95); display: none; flex-direction: column; 
+      background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; 
       justify-content: center; align-items: center; z-index: 50;
     }
     .progress-wrap { width: 70%; height: 6px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
 
-    /* Controls */
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
     .btn { padding: 12px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
     .btn-main { background: var(--accent); color: #000; grid-column: span 2; font-size: 1rem; }
@@ -34,7 +32,7 @@
 
     #log { font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 10px; height: 1rem; }
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; }
-    iframe { width: 100%; height: 500px; border-radius: 10px; background: white; border: none; }
+    iframe { width: 100%; height: 600px; border-radius: 10px; background: white; border: none; }
   </style>
 </head>
 <body>
@@ -43,9 +41,8 @@
   <div id="media-box">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas" style="display:none;"></canvas>
-    
     <div id="overlay">
-      <div id="status-txt" style="font-weight:700; color:var(--accent);">ANALYZING...</div>
+      <div id="status-txt" style="font-weight:700; color:var(--accent);">INITIALIZING...</div>
       <div class="progress-wrap"><div id="progress-fill"></div></div>
     </div>
   </div>
@@ -54,7 +51,7 @@
 
   <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <label class="btn btn-sub" style="text-align:center;">UPLOAD<input type="file" hidden onchange="doUpload(event)"></label>
+    <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden onchange="doUpload(event)"></label>
     <button class="btn btn-sub" onclick="initCam()">START CAM</button>
     <button class="btn btn-stop" onclick="stopCam()">STOP CAM</button>
   </div>
@@ -77,17 +74,25 @@
   const prog = document.getElementById('progress-fill');
   
   let stream = null;
+  let ocrWorker = null;
   let state = { sub: '9702', seas: '', yr: '', pap: '', q: '', words: [] };
 
-  // --- 1. MEDIA ---
+  // --- 1. INITIALIZATION ---
+  async function initWorker() {
+    if (!ocrWorker) {
+      ocrWorker = await Tesseract.createWorker('eng');
+    }
+  }
+
   async function initCam() {
     try {
+      await initWorker();
       if(stream) stopCam();
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 1280 } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
       document.getElementById('log').innerText = "Camera Active";
-    } catch(e) { document.getElementById('log').innerText = "Camera Blocked"; }
+    } catch(e) { document.getElementById('log').innerText = "Camera Access Denied"; }
   }
   initCam();
 
@@ -97,6 +102,7 @@
     document.getElementById('log').innerText = "Camera Stopped";
   }
 
+  // --- 2. PIPELINE ---
   function doUpload(e) {
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -113,45 +119,40 @@
   }
 
   function doCapture() {
-    if(!stream) return alert("Please start the camera or upload a file.");
+    if(!stream) return alert("Please start camera.");
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     video.style.display = 'none'; canvas.style.display = 'block';
     processPipeline();
   }
 
-  // --- 2. ENGINE ---
   async function processPipeline() {
     overlay.style.display = 'flex';
-    updateProg(20, "OCR Scan...");
+    updateProg(20, "OCR Scanning...");
 
     try {
-      const worker = await Tesseract.createWorker('eng');
-      const { data: { text } } = await worker.recognize(canvas);
-      await worker.terminate();
-
+      await initWorker();
+      const { data: { text } } = await ocrWorker.recognize(canvas);
       const clean = text.toUpperCase().replace(/\s+/g, '');
       
-      // FIXED REGEX: Ignores everything until it hits a Season Letter (M/S/W/F)
-      // Extracts Subject(optional), Season, Year, Paper, and Question
-      const regex = /(\d{4})?[^\w]*?([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/i;
+      // STEP 1: Scan for Cambridge Code
+      // Improved Regex for slashes/spaces: 9702/S22/11
+      const regex = /(\d{4})?[^\w]*?([FMSW])(\d{2})[\/\s-]?(\d{1,2})(?:[\/\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
       if (match) {
-        state.sub = match[1] || "9702"; // Force 9702 if not found
+        state.sub = match[1] || "9702";
         state.seas = match[2].toLowerCase();
-        state.seas = (state.seas === 'm' || state.seas === 'f') ? 'm' : state.seas;
         state.yr = match[3];
         state.pap = match[4];
         state.q = match[5] || "";
+        state.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
+        runSearch();
       } else {
-        throw new Error("No match");
+        throw new Error("No Paper Code Found");
       }
-
-      state.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
-      runSearch();
     } catch(e) {
-      alert("Could not identify the paper code. Try a clearer shot.");
+      alert("Error: " + e.message);
       overlay.style.display = 'none';
     }
   }
@@ -166,29 +167,31 @@
 
     let targetQ = q;
 
-    // Word Match fallback if Q wasn't in the code
+    // STEP 2: Hunt for Question Number in QP if not in code
     if (!targetQ && words.length > 0) {
-      updateProg(50, "Scanning QP...");
+      updateProg(50, "Hunting Question #...");
       targetQ = await findQ(qpUrl, words);
     }
 
-    updateProg(80, "Finding MS Page...");
+    // STEP 3: Identify Question in MS and find Page
+    updateProg(80, "Indexing MS...");
     const page = await findPage(msUrl, targetQ || "1");
 
-    updateProg(100, "Opening...");
+    updateProg(100, "Done!");
     setTimeout(() => {
       overlay.style.display = 'none';
-      document.getElementById('pdf-view').src = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${page}`;
+      const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${page}`;
+      document.getElementById('pdf-view').src = viewerUrl;
       document.getElementById('page-id').innerText = `Jumping to Q${targetQ || 1} (Page ${page})`;
-    }, 500);
+    }, 600);
   }
 
-  // --- 3. SCANNERS ---
+  // --- 3. PDF SCANNERS ---
   async function findQ(url, words) {
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
       const pdf = await pdfjsLib.getDocument(proxy).promise;
-      for (let i = 1; i <= Math.min(pdf.numPages, 40); i++) {
+      for (let i = 1; i <= Math.min(pdf.numPages, 20); i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const txt = content.items.map(s => s.str).join(' ').toLowerCase();
@@ -208,7 +211,6 @@
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const txt = content.items.map(s => s.str).join(' ');
-        // Find standalone number or "Question [X]"
         if (new RegExp(`\\b${qNum}\\b`).test(txt)) return i;
       }
     } catch(e) { return 1; }
