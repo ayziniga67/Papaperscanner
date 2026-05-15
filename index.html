@@ -193,23 +193,41 @@
 
     let targetQ = q;
 
+    // Step 2: Hunt in QP if Q is missing
     if (!targetQ && words && words.length > 0) {
-      updateProg(65, "Hunting Question #...");
+      updateProg(60, "Hunting Question #...");
       targetQ = await findQ(qpUrl, words);
     }
 
-    updateProg(85, "Locating Page...");
+    // Step 3: Locate Page in MS
+    updateProg(85, "Indexing Mark Scheme...");
     const page = await findPage(msUrl, targetQ || "1");
 
-    updateProg(100, "Opening Document...");
+    updateProg(100, "Opening Solution...");
+    
     setTimeout(() => {
       overlay.style.display = 'none';
-      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${page}`;
-      document.getElementById('pdf-view').src = viewer;
-      document.getElementById('page-id').innerText = `Q${targetQ || 1} (Page ${page})`;
+      
+      // OPTION 1 IMPLEMENTATION:
+      // Using Google Docs Viewer with the #page parameter. 
+      // NOTE: Google Viewer is sometimes finicky with the #page parameter on mobile.
+      // We also update the info bar with a direct link button.
+      const encodedUrl = encodeURIComponent(msUrl);
+      const viewerFullUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true#page=${page}`;
+      
+      document.getElementById('pdf-view').src = viewerFullUrl;
+      
+      document.getElementById('page-id').innerHTML = `
+        <span style="margin-right:10px">Found Q${targetQ || 1} on Pg ${page}</span>
+        <button onclick="window.open('${msUrl}#page=${page}', '_blank')" 
+                style="background:var(--accent); color:#000; border:none; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;">
+                OPEN PDF DIRECTLY
+        </button>
+      `;
     }, 500);
   }
 
+  
   // --- 4. PDF HELPERS ---
   async function findQ(url, words) {
     try {
@@ -233,15 +251,24 @@
       const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
       const loadingTask = pdfjsLib.getDocument(proxy);
       const pdf = await loadingTask.promise;
+      
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const txt = content.items.map(s => s.str).join(' ');
+        
+        // This regex is "Smart": 
+        // It looks for the question number at the start of a line or after a "Question" label
+        // It avoids matching parts of other numbers (e.g., won't match "2" inside "12")
         const regex = new RegExp(`(^|\\s|Question\\s)${qNum}(\\s|\\.|$)`, 'i');
+        
         if (regex.test(txt)) return i;
       }
-    } catch(e) { return 1; }
-    return 1;
+    } catch(e) { 
+      console.log("MS Search failed, defaulting to page 2");
+      return 2; 
+    }
+    return 2; // Default to start of Mark Scheme if not found
   }
 
   function updateProg(pct, msg) {
