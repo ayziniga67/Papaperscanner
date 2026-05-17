@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Native Canvas Engine</title>
+  <title>Leakbridge - Native Section Scroll Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
+    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --nav-btn: #334155; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
@@ -35,13 +35,22 @@
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
     #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
-    /* Native Document Canvas Container Layout */
-    .viewer-wrap { display: none; width: 100%; margin-top: 10px; }
-    #info-bar { background: var(--card); padding: 12px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    #pdf-pages-container { width: 100%; background: #1e293b; border-radius: 0 0 10px 10px; padding: 10px; display: flex; flex-direction: column; gap: 15px; max-height: 700px; overflow-y: auto; scroll-behavior: smooth; }
-    .page-card { width: 100%; background: #0f172a; border-radius: 8px; padding: 5px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
-    .page-label { position: absolute; top: 10px; left: 10px; background: rgba(56, 189, 248, 0.9); color: #0f172a; font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; z-index: 10; pointer-events: none; }
-    .page-card canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: white; }
+    /* Native Document Hub Layout */
+    .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
+    #info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 10px; padding: 0 4px; }
+    
+    /* Jump Navigation Bar */
+    #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; }
+    #pdf-nav-bar::-webkit-scrollbar { height: 4px; }
+    #pdf-nav-bar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
+    .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
+
+    /* Section-based Scroll Track */
+    #pdf-sections-track { width: 100%; display: flex; flex-direction: column; gap: 20px; max-height: 650px; overflow-y: auto; scroll-behavior: smooth; padding-right: 2px; }
+    .page-section { width: 100%; background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid rgba(255,255,255,0.08); position: relative; }
+    .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
+    .page-section canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: white; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   </style>
 </head>
 <body>
@@ -81,7 +90,10 @@
         <span id="paper-id" style="color:var(--accent); font-weight:bold;"></span>
         <span id="match-status" style="font-size:0.75rem; color:#94a3b8;"></span>
     </div>
-    <div id="pdf-pages-container"></div>
+    
+    <div id="pdf-nav-bar"></div>
+    
+    <div id="pdf-sections-track"></div>
   </div>
 </div>
 
@@ -110,7 +122,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Using static/upload capture mode."; }
+    } catch(e) { document.getElementById('log').innerText = "Static execution mode active."; }
   }
   initCam();
 
@@ -126,7 +138,7 @@
   }
 
   function doCapture() {
-    if(video.videoWidth === 0) return alert("Camera feed inactive.");
+    if(video.videoWidth === 0) return alert("Camera module initialization skipped.");
     processImage();
   }
 
@@ -160,12 +172,12 @@
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      document.getElementById('debug-read').innerText = "OCR String: " + clean.substring(0, 35);
+      document.getElementById('debug-read').innerText = "OCR Text Match: " + clean.substring(0, 35);
 
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
-      if (!match) throw new Error("CIE Suffix Match Failed. Ensure alignment matches standard headers.");
+      if (!match) throw new Error("CIE Suffix Layout match failed. Readjust focus point.");
 
       let rawSession = match[1];
       if (rawSession === "MJ" || rawSession === "J" || rawSession === "S") state.seas = "s";
@@ -184,7 +196,7 @@
 
       await runNativeRenderPipeline();
     } catch(err) {
-      alert("System Notice: " + err.message);
+      alert("Notice: " + err.message);
       overlay.style.display = 'none';
       video.style.display = 'block'; canvas.style.display = 'none';
     }
@@ -199,10 +211,13 @@
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;
     
-    const container = document.getElementById('pdf-pages-container');
-    container.innerHTML = ''; // Flush old viewport sessions completely
+    const navBar = document.getElementById('pdf-nav-bar');
+    const track = document.getElementById('pdf-sections-track');
+    
+    navBar.innerHTML = '';
+    track.innerHTML = ''; 
 
-    updateProg(55, "Fetching & Parsing Document Streams...");
+    updateProg(50, "Fetching PDF Assets...");
     
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(msUrl)}`;
@@ -211,21 +226,31 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // Render All Pages sequentially into DOM wrapper frames
       for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
+        updateProg(50 + Math.floor((i / pdf.numPages) * 40), `Structuring Page ${i}...`);
         
-        const pageCard = document.createElement('div');
-        pageCard.id = `page-card-${i}`;
-        pageCard.className = 'page-card';
-        pageCard.innerHTML = `<div class="page-label">Page ${i}</div>`;
+        const page = await pdf.getPage(i);
+
+        // 1. Build Navigation Button Elements
+        const navBtn = document.createElement('button');
+        navBtn.className = 'nav-jump-btn';
+        navBtn.id = `nav-btn-${i}`;
+        navBtn.innerText = `Pg ${i}`;
+        navBtn.onclick = () => jumpToSection(i);
+        navBar.appendChild(navBtn);
+
+        // 2. Build Structural Section Wrappers
+        const section = document.createElement('div');
+        section.id = `page-sec-${i}`;
+        section.className = 'page-section';
+        section.innerHTML = `<div class="page-badge">PAGE ${i}</div>`;
         
         const pageCanvas = document.createElement('canvas');
-        pageCard.appendChild(pageCanvas);
-        container.appendChild(pageCard);
+        section.appendChild(pageCanvas);
+        track.appendChild(section);
 
-        // COUNTER BLURRYNESS: Over-render internals at 2.5x crisp resolution scale
-        const renderScale = 2.5; 
+        // 3. Counter Blurryness safely with fixed mobile scaling + contrast crisping CSS
+        const renderScale = 2.0; 
         const viewport = page.getViewport({ scale: renderScale });
         const canvasCtx = pageCanvas.getContext('2d');
         
@@ -233,15 +258,17 @@
         pageCanvas.width = viewport.width;
 
         const renderContext = { canvasContext: canvasCtx, viewport: viewport };
-        page.render(renderContext); // Renders asynchronously in the background
+        
+        // CRITICAL FIX: Explicitly await the background render execution task to block memory leakage
+        await page.render(renderContext).promise;
 
-        // Run Column-Tracking Logic asynchronously (Bypassing page 1 cover)
+        // 4. Asynchronous Geometric Column-Searching Filter (Bypassing cover page)
         if (i > 1 && !foundMatch) {
           const content = await page.getTextContent();
           for (let item of content.items) {
             const itemX = item.transform[4];
-            // If text block sits cleanly inside the left margin track
-            if (itemX < (viewport.width / renderScale) * 0.18) {
+            // Enforce checking purely within the left margin tracking column
+            if (itemX < (viewport.width / renderScale) * 0.16) {
               const cleanedText = item.str.replace(/\D/g, '');
               if (cleanedText === targetQ) {
                 matchedPage = i;
@@ -253,20 +280,36 @@
         }
       }
 
-      document.getElementById('match-status').innerText = `Jumped to Page ${matchedPage}`;
-      updateProg(100, "Display Sync Complete.");
+      // Highlight the precise target button destination
+      const activeBtn = document.getElementById(`nav-btn-${matchedPage}`);
+      if(activeBtn) activeBtn.className = 'nav-jump-btn active';
+
+      document.getElementById('match-status').innerText = `Located on Page ${matchedPage}`;
+      updateProg(100, "Rendering Synced Successfully.");
       
       setTimeout(() => {
         overlay.style.display = 'none';
-        const targetCard = document.getElementById(`page-card-${matchedPage}`);
-        if (targetCard) {
-          targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 400);
+        jumpToSection(matchedPage);
+      }, 300);
 
     } catch (err) {
-      alert("Failed to load PDF cleanly. Proxy server busy or structural URL 404 mismatch.");
+      alert("Error generating document views natively. Check cross-origin availability.");
       overlay.style.display = 'none';
+    }
+  }
+
+  function jumpToSection(pageIndex) {
+    const targetSection = document.getElementById(`page-sec-${pageIndex}`);
+    if (targetSection) {
+      targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Update toggle navigation states smoothly
+      document.querySelectorAll('.nav-jump-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(`nav-btn-${pageIndex}`);
+      if(activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
     }
   }
 
