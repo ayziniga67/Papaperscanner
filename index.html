@@ -14,10 +14,13 @@
     .container { width: 100%; max-width: 450px; }
 
     /* Top Settings Bar */
-    .settings-bar { width: 100%; background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(255,255,255,0.05); }
-    .settings-bar label { font-size: 0.75rem; font-weight: 700; color: var(--accent); text-transform: uppercase; }
-    .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; width: 80px; text-align: center; font-weight: 600; outline: none; }
+    .settings-bar { width: 100%; background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-around; border: 1px solid rgba(255,255,255,0.05); }
+    .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .settings-bar label { font-size: 0.7rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+    .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; text-align: center; font-weight: 600; outline: none; transition: border 0.2s; }
     .settings-bar input:focus { border-color: var(--accent); }
+    #sub-input { width: 80px; }
+    #q-input { width: 60px; }
 
     #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
@@ -48,8 +51,14 @@
 
 <div class="container">
   <div class="settings-bar">
-    <label>Subject Code:</label>
-    <input type="text" id="sub-input" placeholder="9702" value="9702" maxlength="4">
+    <div class="input-group">
+      <label>Subject</label>
+      <input type="text" id="sub-input" placeholder="9702" value="9702" maxlength="4">
+    </div>
+    <div class="input-group">
+      <label>Target Q#</label>
+      <input type="text" id="q-input" placeholder="Auto" maxlength="2">
+    </div>
   </div>
 
   <div id="media-box">
@@ -145,9 +154,10 @@
     overlay.style.display = 'flex';
     updateProg(10, "Reading Image...");
     
-    // 1. Reset state & pull from manual input
     const manualSub = document.getElementById('sub-input').value || '9702';
-    state = { sub: manualSub, seas: '', yr: '', pap: '', q: '', words: [] };
+    const manualQ = document.getElementById('q-input').value; // Read pre-typed Q number
+    
+    state = { sub: manualSub, seas: '', yr: '', pap: '', q: manualQ };
 
     try {
       await setupOCR();
@@ -158,18 +168,20 @@
 
       const clean = text.toUpperCase().replace(/\s+/g, '');
       
-      // 2. Focused Regex (No Syllabus check)
-      // Matches: [Session Letter] [2-digit Year] [/ or space] [Paper] [optional Q + Number]
       const regex = /([FMSW])(\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
-      if (!match) throw new Error("Code not detected. Try focusing on the W23/12 part.");
+      if (!match) throw new Error("Code not detected. Try focusing on the session code (e.g., W23/12).");
 
       state.seas = match[1].toLowerCase();
       state.yr = match[2];
       state.pap = match[3];
-      state.q = match[4] || "";
-      state.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
+      
+      // If the camera explicitly detects a Q number in the text, override the input box
+      if (match[4]) {
+        state.q = match[4];
+        document.getElementById('q-input').value = state.q; 
+      }
 
       await runSearch();
     } catch(err) {
@@ -180,45 +192,30 @@
   }
 
   async function runSearch() {
-    const { sub, seas, yr, pap, q, words } = state;
+    const { sub, seas, yr, pap, q } = state;
+    // Default to Q1 if no question number was detected OR typed in manually
+    const targetQ = q || "1"; 
+    
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-    const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
 
     document.getElementById('viewer-wrap').style.display = 'block';
-    document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
+    document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;
 
-    let targetQ = q;
-    if (!targetQ && words.length > 0) {
-      updateProg(65, "Searching Question Paper...");
-      targetQ = await findQ(qpUrl, words);
-    }
-
-    updateProg(85, "Locating Page in MS...");
-    const page = await findPage(msUrl, targetQ || "1");
+    updateProg(75, "Locating Page in Mark Scheme...");
+    const page = await findPage(msUrl, targetQ);
 
     updateProg(100, "Done!");
     setTimeout(() => {
       overlay.style.display = 'none';
       const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${page}`;
       document.getElementById('pdf-view').src = viewerUrl;
-      document.getElementById('page-jump').innerHTML = `<button onclick="window.open('${msUrl}#page=${page}')" style="background:var(--accent); border:none; padding:5px 10px; border-radius:5px; font-size:10px; font-weight:700; cursor:pointer;">OPEN DIRECT (PG ${page})</button>`;
+      
+      document.getElementById('page-jump').innerHTML = `
+        <button onclick="window.open('${msUrl}#page=${page}')" 
+          style="background:var(--accent); color:#0f172a; border:none; padding:5px 10px; border-radius:5px; font-size:10px; font-weight:700; cursor:pointer;">
+          OPEN DIRECT (PG ${page})
+        </button>`;
     }, 500);
-  }
-
-  async function findQ(url, words) {
-    try {
-      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-      const pdf = await pdfjsLib.getDocument(proxy).promise;
-      for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
-        const p = await pdf.getPage(i);
-        const content = await p.getTextContent();
-        const txt = content.items.map(s => s.str).join(' ').toLowerCase();
-        if (words.slice(0,2).every(w => txt.includes(w))) {
-          const m = txt.match(/(?:^|\s)(\d+)\s*\./);
-          return m ? m[1] : null;
-        }
-      }
-    } catch(e) { return null; }
   }
 
   async function findPage(url, qNum) {
@@ -229,11 +226,13 @@
         const p = await pdf.getPage(i);
         const content = await p.getTextContent();
         const txt = content.items.map(s => s.str).join(' ');
+        
+        // Searches for Q number as an independent word/digit
         const regex = new RegExp(`(^|\\s|Question\\s)${qNum}(\\s|\\.|$)`, 'i');
         if (regex.test(txt)) return i;
       }
     } catch(e) { return 2; }
-    return 2;
+    return 2; // Default to page 2 if it completely fails
   }
 
   function updateProg(pct, msg) {
