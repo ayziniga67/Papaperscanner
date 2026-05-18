@@ -108,7 +108,7 @@
 
   <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH DIRECT</button>
+    <button class="btn btn-sub" id="cam-toggle-btn" onclick="initCam()">OPEN CAMERA</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
   </div>
 
@@ -143,14 +143,33 @@
   }
   setupOCR();
 
+  // Keep track of the active camera stream globally
+  let currentStream = null;
+
   async function initCam() {
     try {
+      // If a stream is already running, stop it (Turn Camera Off)
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+        currentStream = null;
+        document.getElementById('log').innerText = "Camera deactivated.";
+        document.getElementById('cam-toggle-btn').innerText = "OPEN CAMERA";
+        return;
+      }
+
+      // Otherwise, request and open the camera stream (Turn Camera On)
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
+      currentStream = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Static file mode active."; }
+      document.getElementById('log').innerText = "Camera active.";
+      document.getElementById('cam-toggle-btn').innerText = "CLOSE CAMERA";
+    } catch(e) { 
+      document.getElementById('log').innerText = "Static file mode active."; 
+    }
   }
-  initCam();
+  // Automatic call removed so it starts in a closed state!
 
   function processImage() {
     const ctx = canvas.getContext('2d');
@@ -159,6 +178,14 @@
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     video.style.display = 'none'; canvas.style.display = 'block';
+
+    // Shut down the camera hardware automatically after capture
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      currentStream = null;
+      document.getElementById('cam-toggle-btn').innerText = "OPEN CAMERA";
+    }
+
     processPipeline();
   }
 
