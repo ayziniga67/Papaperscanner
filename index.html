@@ -108,7 +108,6 @@
 
   <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" id="cam-toggle-btn" onclick="initCam()">OPEN CAMERA</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
   </div>
 
@@ -148,15 +147,12 @@
 
   async function initCam() {
     try {
-      // If a stream is already running, stop it (Turn Camera Off)
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
-        currentStream = null;
-        document.getElementById('log').innerText = "Camera deactivated.";
-        document.getElementById('cam-toggle-btn').innerText = "OPEN CAMERA";
-        return;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+      video.srcObject = stream;
+      video.style.display = 'block'; canvas.style.display = 'none';
+    } catch(e) { document.getElementById('log').innerText = "Static file mode active."; }
+  }
+  initCam();
 
       // Otherwise, request and open the camera stream (Turn Camera On)
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
