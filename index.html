@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
+  <title>Leakbridge - Restored Adaptive Lazy Snap Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -13,12 +13,12 @@
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Exposed Blueprint Settings Bar */
-    .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
-    .input-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
-    .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
-    .settings-bar label { font-size: 0.65rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
-    .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 6px 4px; border-radius: 6px; text-align: center; font-weight: 600; font-size: 0.85rem; width: 100%; outline: none; }
+    .settings-bar { width: 100%; background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-around; border: 1px solid rgba(255,255,255,0.05); }
+    .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .settings-bar label { font-size: 0.7rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+    .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; text-align: center; font-weight: 600; outline: none; }
+    #sub-input { width: 80px; }
+    #q-input { width: 60px; }
 
     #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
@@ -35,53 +35,35 @@
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
     #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
-    /* Native Document Display Workspace */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
     #info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 10px; padding: 0 4px; }
     
-    /* Horizontal Navigation Picker Bar */
     #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
     #pdf-nav-bar::-webkit-scrollbar { height: 4px; }
     #pdf-nav-bar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Strict 1-Page Native CSS Scroll Snap-Track Viewport */
-    #pdf-sections-track { width: 100%; height: 520px; display: flex; flex-direction: column; gap: 0px; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); }
-    .page-section { width: 100%; height: 100%; min-height: 100%; scroll-snap-align: start; scroll-snap-stop: always; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden; }
+    #pdf-sections-track { width: 100%; height: 500px; display: flex; flex-direction: column; gap: 0px; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #0f172a; }
+    .page-section { width: 100%; height: 100%; min-height: 100%; scroll-snap-align: start; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,0.03); }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
     
-    /* Layout Canvas Scaling Rules */
     .page-section canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; background: white; image-rendering: -webkit-optimize-contrast; }
     .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+    @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
   </style>
 </head>
 <body>
 
 <div class="container">
   <div class="settings-bar">
-    <div class="input-row">
-      <div class="input-group">
-        <label>Subject</label>
-        <input type="text" id="sub-input" value="9702" maxlength="4">
-      </div>
-      <div class="input-group">
-        <label>Year</label>
-        <input type="text" id="yr-input" value="23" maxlength="2">
-      </div>
-      <div class="input-group">
-        <label>Series</label>
-        <input type="text" id="seas-input" value="s" maxlength="1">
-      </div>
-      <div class="input-group">
-        <label>Paper</label>
-        <input type="text" id="pap-input" value="21" maxlength="2">
-      </div>
-      <div class="input-group">
-        <label>Target Q</label>
-        <input type="text" id="q-input" value="1" maxlength="2">
-      </div>
+    <div class="input-group">
+      <label>Subject</label>
+      <input type="text" id="sub-input" placeholder="9702" value="9702" maxlength="4">
+    </div>
+    <div class="input-group">
+      <label>Target Q#</label>
+      <input type="text" id="q-input" placeholder="Auto" value="1" maxlength="2">
     </div>
   </div>
 
@@ -99,7 +81,7 @@
 
   <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH DIRECT</button>
+    <button class="btn btn-sub" onclick="initCam()">CAM ON</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
   </div>
 
@@ -122,6 +104,7 @@
   const prog = document.getElementById('progress-fill');
   
   let ocrWorker = null;
+  let state = {}; 
   let currentPdf = null;
   let scrollObserver = null;
 
@@ -139,7 +122,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Static file mode active."; }
+    } catch(e) { document.getElementById('log').innerText = "Static file mode ready."; }
   }
   initCam();
 
@@ -175,41 +158,47 @@
 
   async function processPipeline() {
     overlay.style.display = 'flex';
-    updateProg(15, "Analyzing Document Geometry...");
+    updateProg(15, "Acquiring Document References...");
+    
+    const manualSub = document.getElementById('sub-input').value || '9702';
+    const manualQ = document.getElementById('q-input').value || '1'; 
+    
+    state = { sub: manualSub, seas: '', yr: '', pap: '', q: manualQ };
 
     try {
       await setupOCR();
-      updateProg(40, "Extracting Core Identifiers...");
+      updateProg(40, "Running OCR Matrix...");
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      document.getElementById('debug-read').innerText = "OCR String: " + clean.substring(0, 35);
+      document.getElementById('debug-read').innerText = "Matched Text: " + clean.substring(0, 35);
 
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
-      if (match) {
-        let rawSession = match[1];
-        let computedSeas = "s";
-        if (rawSession === "MJ" || rawSession === "J" || rawSession === "S") computedSeas = "s";
-        else if (rawSession === "ON" || rawSession === "W") computedSeas = "w";
-        else if (rawSession === "FM" || rawSession === "M" || rawSession === "F") computedSeas = "m";
-        else computedSeas = rawSession.toLowerCase();
+      if (!match) throw new Error("CIE Suffix Code unreadable.");
 
-        let rawYear = match[2];
-        let computedYr = rawYear.length === 4 ? rawYear.substring(2) : rawYear;
-        let computedPap = match[3];
-        
-        document.getElementById('yr-input').value = computedYr;
-        document.getElementById('seas-input').value = computedSeas;
-        document.getElementById('pap-input').value = computedPap;
-        if (match[4]) document.getElementById('q-input').value = match[4];
+      let rawSession = match[1];
+      if (rawSession === "MJ" || rawSession === "J" || rawSession === "S") state.seas = "s";
+      else if (rawSession === "ON" || rawSession === "W") state.seas = "w";
+      else if (rawSession === "FM" || rawSession === "M" || rawSession === "F") state.seas = "m";
+      else state.seas = rawSession.toLowerCase();
+
+      let rawYear = match[2];
+      state.yr = rawYear.length === 4 ? rawYear.substring(2) : rawYear;
+      state.pap = match[3];
+      
+      if (match[4]) {
+        state.q = match[4];
+        document.getElementById('q-input').value = state.q; 
       }
+
+      await runNativeRenderPipeline();
     } catch(err) {
-      console.warn("OCR non-blocking bypass active.");
+      console.log(err.message);
+      if(!state.seas) { state.seas = 's'; state.yr = '23'; state.pap = '21'; }
+      await runNativeRenderPipeline();
     }
-    
-    await runNativeRenderPipeline();
   }
 
   async function fetchPDFResilient(targetUrl) {
@@ -219,27 +208,22 @@
       `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
     ];
 
-    let lastError = null;
     for (let i = 0; i < proxies.length; i++) {
       try {
         const task = pdfjsLib.getDocument(proxies[i]);
         const pdf = await task.promise;
         return pdf;
       } catch (e) {
-        console.warn(`Proxy node ${i + 1} bypassed.`);
-        lastError = e;
+        console.warn(`Proxy Node ${i + 1} bypassed.`);
       }
     }
-    throw lastError || new Error("All proxy pathways rejected file package stream.");
+    throw new Error("All edge gateways reporting timeout restrictions.");
   }
 
   async function runNativeRenderPipeline() {
-    const sub = document.getElementById('sub-input').value.trim();
-    const yr = document.getElementById('yr-input').value.trim();
-    const seas = document.getElementById('seas-input').value.trim().toLowerCase();
-    const pap = document.getElementById('pap-input').value.trim();
-    const targetQ = document.getElementById('q-input').value.trim() || "1";
-
+    const { sub, seas, yr, pap, q } = state;
+    const targetQ = q || "1"; 
+    
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
 
     document.getElementById('viewer-wrap').style.display = 'block';
@@ -252,7 +236,7 @@
     track.innerHTML = ''; 
     if(scrollObserver) scrollObserver.disconnect();
 
-    updateProg(60, "Requesting Remote Asset Stream...");
+    updateProg(60, "Connecting to Assets...");
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);
@@ -260,22 +244,22 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // FIRST-CHARACTER OFFSET LOGIC MATRIX
-      let startSearchPage = 2;
+      // EXPLICIT CONDITIONAL CHECK: Inspect paper string & assign scanning offsets
+      let startSearchPage = 2; 
       if (pap && pap.toString().charAt(0) === '1') {
-        startSearchPage = 2; // True: First digit is "1" -> Start scanning early
+        startSearchPage = 2; // True: Paper 1 variations scan early
       } else {
-        startSearchPage = Math.min(7, currentPdf.numPages); // False: e.g., "21" -> Skip front matter to Page 7
+        startSearchPage = Math.min(7, currentPdf.numPages); // False: All structural papers jump directly to Page 7
       }
 
-      // STEP 1: INDEX TEXT SCANNER VIA VARIABLE TARGET ASSIGNMENT
+      // STEP 1: INDEX TEXT SCANNER USING CUSTOM BOUNDARY
       for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
         for (let item of content.items) {
-          const itemX = item.transform ? item.transform[4] : 0;
+          const itemX = item.transform[4];
           if (itemX < 100) { 
             const cleanedText = item.str.replace(/\D/g, '');
             if (cleanedText === targetQ) {
@@ -287,7 +271,7 @@
         }
       }
 
-      // STEP 2: SETUP PRECISE INTERSECTION LAZY OBSERVER 
+      // STEP 2: SETUP INTERSECTION OBSERVER FOR NATIVE LAZY LOADING
       scrollObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -296,9 +280,9 @@
             updateActiveNavHighlight(pageNum);
           }
         });
-      }, { root: track, threshold: 0.1, rootMargin: "50px 0px" });
+      }, { root: track, threshold: 0.4 });
 
-      // STEP 3: CONSTRUCT STRUCTURAL SHELLS
+      // STEP 3: CONSTRUCT STRUCTURAL LAYOUT SHELLS
       for (let i = 1; i <= currentPdf.numPages; i++) {
         const navBtn = document.createElement('button');
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
@@ -311,14 +295,14 @@
         section.id = `page-sec-${i}`;
         section.className = 'page-section';
         section.dataset.page = i;
-        section.innerHTML = `<div class="page-badge">PAGE ${i}</div><span class="loading-placeholder" id="loader-txt-${i}">Scroll to View</span>`;
+        section.innerHTML = `<div class="page-badge">PAGE ${i}</div><span class="loading-placeholder" id="loader-txt-${i}">Scroll to Render</span>`;
         
         track.appendChild(section);
         scrollObserver.observe(section);
       }
 
       document.getElementById('match-status').innerText = `Focused Page ${matchedPage}`;
-      updateProg(100, "Sync Complete.");
+      updateProg(100, "Ready.");
       
       setTimeout(() => {
         overlay.style.display = 'none';
@@ -326,13 +310,12 @@
       }, 150);
 
     } catch (err) {
-      document.getElementById('match-status').innerText = "Load Failed";
-      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your parameter configuration fields.`);
+      alert("Pipeline failure: URL format unresolvable or file missing.");
       overlay.style.display = 'none';
     }
   }
 
-  // STEP 4: TRUE LAZY RENDER COMPLIANCE
+  // STEP 4: ON-DEMAND RENDERING GATE (True Lazy Evaluation)
   async function executeLazyRender(pageNum) {
     if (!currentPdf) return;
     try {
@@ -355,7 +338,7 @@
       if (placeholder) placeholder.remove();
       section.appendChild(pageCanvas);
     } catch (e) {
-      console.error(`Dynamic viewport painting error on page ${pageNum}:`, e);
+      console.error(`Dynamic Canvas Drop Exception Page ${pageNum}:`, e);
     }
   }
 
