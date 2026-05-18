@@ -178,14 +178,6 @@
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     video.style.display = 'none'; canvas.style.display = 'block';
-
-    // Shut down the camera hardware automatically after capture
-    if (currentStream) {
-      currentStream.getTracks().forEach(track => track.stop());
-      currentStream = null;
-      document.getElementById('cam-toggle-btn').innerText = "OPEN CAMERA";
-    }
-
     processPipeline();
   }
 
