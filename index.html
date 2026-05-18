@@ -272,7 +272,7 @@
         startSearchPage = Math.min(7, currentPdf.numPages); 
       }
 
-      // STEP 1: FAST INDEX TEXT EXTRACTOR
+      // STEP 1: ROBUST INDEX TEXT EXTRACTOR
       for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
@@ -280,9 +280,18 @@
         
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
-          if (itemX < 100) { 
-            const cleanedText = item.str.replace(/\D/g, '');
-            if (cleanedText === targetQ) {
+          // Target only left-aligned margins where parent question indexes reside
+          if (itemX > 15 && itemX < 95) { 
+            const rawStr = item.str.trim();
+            
+            // Filter out noise text (like footers, headers, page indicators, or bracketed sub-marks)
+            if (rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
+              continue; 
+            }
+
+            // Extract pure numbers only if it forms a standalone integer match
+            const cleanedText = rawStr.replace(/\D/g, '');
+            if (cleanedText === targetQ && /^\d+$/.test(rawStr)) {
               matchedPage = i;
               foundMatch = true;
               break;
